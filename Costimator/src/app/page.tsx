@@ -1,0 +1,356 @@
+﻿'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function Home() {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const heroImages = [
+    {
+      url: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=1600&auto=format&fit=crop&q=80',
+      alt: 'Construction site overview'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1600&auto=format&fit=crop&q=80',
+      alt: 'Modern building construction'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1581094271901-8022df4466f9?w=1600&auto=format&fit=crop&q=80',
+      alt: 'Road construction project'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1590674899484-d5640e854abe?w=1600&auto=format&fit=crop&q=80',
+      alt: 'Heavy construction machinery'
+    },
+    {
+      url: 'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=1600&auto=format&fit=crop&q=80',
+      alt: 'Construction workers on site'
+    }
+  ];
+
+  // Auto-rotate images every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [heroImages.length]);
+
+  const modules = [
+    {
+      title: 'Quantity Takeoff',
+      description: 'Professional structural quantity estimation with grid-based modeling',
+      href: '/projects?type=takeoff',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+      ),
+      stats: ['Grid Modeling', 'Element Templates', 'Auto-Calc', 'Visualization'],
+      gradient: 'from-blue-500 to-blue-600'
+    },
+    {
+      title: 'Cost Estimation',
+      description: 'DPWH-compliant detailed cost estimates with complete add-on calculations',
+      href: '/estimate',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      stats: ['Direct Costs', 'OCM/CP/VAT', 'PDF Export', 'History'],
+      gradient: 'from-emerald-500 to-emerald-600'
+    },
+    {
+      title: 'DUPA Templates',
+      description: 'Reusable detailed unit price analysis with material, labor, and equipment',
+      href: '/dupa-templates',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      stats: ['Templates', 'Location Rates', 'Multi-Input', 'Instant BOQ'],
+      gradient: 'from-violet-500 to-violet-600'
+    },
+    {
+      title: 'BOQ Management',
+      description: 'Complete bill of quantities workflow with project tracking and monitoring',
+      href: '/projects?type=boq',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      stats: ['Tracking', 'Progress', 'Multi-Site', 'Status'],
+      gradient: 'from-amber-500 to-amber-600'
+    },
+    {
+      title: 'DPWH Pay Items',
+      description: 'Volume III pay items organized by Parts (A, C, D, E, F, G) with search',
+      href: '/catalog',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      ),
+      stats: ['Pay Items', 'Search', 'Classification', 'Units'],
+      gradient: 'from-indigo-500 to-indigo-600'
+    },
+    {
+      title: 'Master Data',
+      description: 'Centralized management of materials, equipment, labor rates, and pricing',
+      href: '/master',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+        </svg>
+      ),
+      stats: ['Materials', 'Equipment', 'Labor', 'Import/Export'],
+      gradient: 'from-slate-500 to-slate-600'
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Hero Section */}
+      <div className="relative bg-white border-b border-slate-200 overflow-hidden">
+        {/* Background Images with Crossfade */}
+        <div className="absolute inset-0">
+          {heroImages.map((image, index) => (
+            <div
+              key={index}
+              className={`absolute inset-0 transition-opacity duration-1000 ${
+                index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <img
+                src={image.url}
+                alt={image.alt}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/50 via-slate-900/40 to-transparent"></div>
+        </div>
+
+        {/* Navigation Dots */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+          {heroImages.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentImageIndex(index)}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentImageIndex
+                  ? 'bg-white w-8'
+                  : 'bg-white/50 hover:bg-white/75'
+              }`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="relative max-w-7xl mx-auto px-6 py-20">
+          <div className="max-w-4xl">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg ring-2 ring-white/20">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div className="bg-slate-900/60 backdrop-blur-sm px-4 py-2 rounded-lg">
+                <h1 className="text-4xl font-bold text-white drop-shadow-lg">Costimator</h1>
+                <p className="text-blue-300 text-sm font-medium mt-0.5">DPWH Cost Estimation Platform</p>
+              </div>
+            </div>
+            
+            <div className="bg-slate-900/60 backdrop-blur-md px-6 py-6 rounded-xl shadow-2xl">
+              <h2 className="text-3xl font-semibold text-white mb-4 drop-shadow-md">
+                Professional Construction Cost Management System
+              </h2>
+              <p className="text-lg text-slate-100 leading-relaxed mb-8">
+                Integrated platform for quantity takeoff, detailed unit price analysis (DUPA), and bill of quantities 
+                generation compliant with DPWH Volume III standards. Streamline your construction project estimation 
+                workflow with automated calculations and comprehensive data management.
+              </p>
+
+              <div className="flex gap-4">
+                <Link
+                  href="/projects/new"
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Create New Project
+                </Link>
+                <Link
+                  href="/projects"
+                  className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm text-slate-900 px-6 py-3 rounded-lg font-semibold hover:bg-white transition-all shadow-lg hover:scale-105"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  View All Projects
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Bar */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="grid grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="text-3xl font-bold mb-1">100%</div>
+              <div className="text-slate-300 text-sm">DPWH Compliance</div>
+            </div>
+            <div className="text-center border-l border-slate-700 pl-8">
+              <div className="text-3xl font-bold mb-1">6</div>
+              <div className="text-slate-300 text-sm">Core Modules</div>
+            </div>
+            <div className="text-center border-l border-slate-700 pl-8">
+              <div className="text-3xl font-bold mb-1">Automated</div>
+              <div className="text-slate-300 text-sm">Calculations</div>
+            </div>
+            <div className="text-center border-l border-slate-700 pl-8">
+              <div className="text-3xl font-bold mb-1">Multi-Format</div>
+              <div className="text-slate-300 text-sm">Export Options</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modules Grid */}
+      <div className="max-w-7xl mx-auto px-6 py-16">
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Platform Modules</h2>
+          <p className="text-slate-600">Comprehensive tools for construction cost estimation and management</p>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {modules.map((module, idx) => (
+            <Link key={idx} href={module.href} className="group">
+              <div className="bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-xl transition-all duration-200 overflow-hidden h-full">
+                <div className={`bg-gradient-to-r ${module.gradient} p-6 text-white`}>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg">
+                      {module.icon}
+                    </div>
+                    <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">{module.title}</h3>
+                  <p className="text-sm text-white/90 leading-relaxed">{module.description}</p>
+                </div>
+                
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {module.stats.map((stat, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                        <span className="text-slate-700 font-medium">{stat}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Features Section */}
+      <div className="bg-white border-y border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 py-16">
+          <div className="grid md:grid-cols-2 gap-12">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">Enterprise Features</h2>
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900 mb-1">DPWH Standards Compliance</h3>
+                    <p className="text-slate-600 text-sm">100% aligned with official Volume III specifications and calculation methods</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900 mb-1">Real-Time Calculations</h3>
+                    <p className="text-slate-600 text-sm">Automated quantity calculations and cost updates as you model</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900 mb-1">Centralized Data Management</h3>
+                    <p className="text-slate-600 text-sm">Single source of truth for materials, equipment, and labor rates</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">System Capabilities</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-slate-900 mb-1">Unlimited</div>
+                  <div className="text-sm text-slate-600">Projects & Estimates</div>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-slate-900 mb-1">Multi-Location</div>
+                  <div className="text-sm text-slate-600">Regional Rates</div>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-slate-900 mb-1">PDF & Excel</div>
+                  <div className="text-sm text-slate-600">Export Formats</div>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <div className="text-2xl font-bold text-slate-900 mb-1">Historical</div>
+                  <div className="text-sm text-slate-600">Version Tracking</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className="max-w-7xl mx-auto px-6 py-16">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-12 text-center text-white">
+          <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
+          <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
+            Streamline your construction cost estimation workflow with professional tools designed for Philippine infrastructure projects
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Link href="/projects" className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors shadow-lg">
+              Browse Projects
+            </Link>
+            <Link href="/catalog" className="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-400 transition-colors border border-white/20">
+              View Pay Items
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

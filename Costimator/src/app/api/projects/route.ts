@@ -1,0 +1,149 @@
+import { NextRequest, NextResponse } from 'next/server';
+import dbConnect from '@/lib/db/connect';
+import Project from '@/models/Project';
+import { z } from 'zod';
+
+const ProjectSchema = z.object({
+  projectName: z.string().min(1, 'Project name is required'),
+  projectLocation: z.string().min(1, 'Project location is required'),
+  district: z.string().default('Bukidnon 1st'),
+  implementingOffice: z.string().default('DPWH Bukidnon 1st District Engineering Office'),
+  appropriation: z.coerce.number().min(0).default(0),
+  contractId: z.string().optional(),
+  projectType: z.string().optional(),
+  status: z
+    .enum(['Planning', 'Approved', 'Ongoing', 'Completed', 'Cancelled'])
+    .default('Planning'),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  description: z.string().optional(),
+  haulingCostPerKm: z.coerce.number().min(0).default(0),
+  distanceFromOffice: z.coerce.number().min(0).default(0),
+});
+
+// GET /api/projects - List projects with filtering
+export async function GET(req: NextRequest) {
+  try {
+    await dbConnect();
+
+    const searchParams = req.nextUrl.searchParams;
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status') || '';
+    const location = searchParams.get('location') || '';
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+
+    // Build filter
+    const filter: any = {};
+
+    if (search) {
+      filter.$or = [
+        { projectName: { $regex: search, $options: 'i' } },
+        { contractId: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (location) {
+      filter.projectLocation = { $regex: location, $options: 'i' };
+    }
+
+    // Get total count
+    const total = await Project.countDocuments(filter);
+
+    // Get projects with pagination
+    const projects = await Project.find(filter)
+      .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    return NextResponse.json({
+      success: true,
+      data: projects,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error: any) {
+    console.error('GET /api/projects error:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Failed to fetch projects',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/projects - Create new project
+export async function POST(req: NextRequest) {
+  try {
+    await dbConnect();
+
+    const body = await req.json();
+
+    // Validate input
+    const validatedData = ProjectSchema.parse(body);
+
+    // Check for duplicate contract ID if provided
+    if (validatedData.contractId) {
+      const existing = await Project.findOne({
+        contractId: validatedData.contractId,
+      });
+
+      if (existing) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Project with contract ID "${validatedData.contractId}" already exists`,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Create project
+    const project = await Project.create(validatedData);
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: project,
+        message: 'Project created successfully',
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error('POST /api/projects error:', error);
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation failed',
+          details: error.errors,
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Failed to create project',
+      },
+      { status: 500 }
+    );
+  }
+}
