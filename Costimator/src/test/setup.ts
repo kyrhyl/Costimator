@@ -17,7 +17,7 @@ vi.mock('@/lib/db/connect', () => ({
 }))
 
 // Create a base mock for Mongoose models
-const createMockModel = () => {
+const mockModelConstructor = () => {
   const mockData = new Map();
   let idCounter = 1;
 

@@ -215,10 +215,10 @@ export async function POST(request: NextRequest) {
       console.log(`Cleared ${deleteResult.deletedCount} existing equipment items`);
     }
     
-    // Handle duplicates
-    let inserted = 0;
-    let skipped = 0;
-    let errors: string[] = [];
+     // Handle duplicates
+     let inserted = 0;
+     let skipped = 0;
+     const errors: string[] = [];
     
     if (skipDuplicates) {
       // Insert one by one, skipping duplicates

@@ -59,7 +59,6 @@ const MaterialSchema = new Schema<IMaterial>(
 );
 
 // Indexes
-MaterialSchema.index({ materialCode: 1 });
 MaterialSchema.index({ category: 1 });
 MaterialSchema.index({ isActive: 1 });
 MaterialSchema.index({ materialDescription: 'text' });

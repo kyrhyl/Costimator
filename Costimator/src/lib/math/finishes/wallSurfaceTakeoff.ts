@@ -23,7 +23,7 @@ export function computeWallSurfaceFinishTakeoff(
   const { wallSurface, finishType, openings, side, wastePercent: wasteOverride } = input;
 
   // Determine area calculation based on side parameter or surface type
-  let baseArea = wallSurface.computed.grossArea_m2;
+  const baseArea = wallSurface.computed.grossArea_m2;
   let sidesCount = wallSurface.computed.sidesCount;
 
   if (side === 'single') {

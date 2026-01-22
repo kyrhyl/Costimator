@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function Home() {
@@ -120,18 +121,19 @@ export default function Home() {
         {/* Background Images with Crossfade */}
         <div className="absolute inset-0">
           {heroImages.map((image, index) => (
-            <div
-              key={index}
-              className={`absolute inset-0 transition-opacity duration-1000 ${
-                index === currentImageIndex ? 'opacity-100' : 'opacity-0'
-              }`}
-            >
-              <img
-                src={image.url}
-                alt={image.alt}
-                className="w-full h-full object-cover"
-              />
-            </div>
+             <div
+               key={index}
+               className={`absolute inset-0 transition-opacity duration-1000 ${
+                 index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+               }`}
+             >
+               <Image
+                 src={image.url}
+                 alt={image.alt}
+                 className="w-full h-full object-cover"
+                 fill
+               />
+             </div>
           ))}
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900/50 via-slate-900/40 to-transparent"></div>
         </div>

@@ -11,7 +11,6 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import DUPATemplate from '@/models/DUPATemplate';
-import RateItem from '@/models/RateItem';
 import LaborRate from '@/models/LaborRate';
 import Equipment from '@/models/Equipment';
 import Material from '@/models/Material';
@@ -62,7 +61,7 @@ export async function POST(
       );
     }
 
-    const { location, useEvaluated, effectiveDate, projectId, projectOcmPercentage, projectCpPercentage } = validated;
+     const { location, projectId, projectOcmPercentage, projectCpPercentage } = validated;
     
     console.log(`Instantiating template with location: "${location}", projectId: ${projectId}, OCM: ${projectOcmPercentage}%, CP: ${projectCpPercentage}%`);
 

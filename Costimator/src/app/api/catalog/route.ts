@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { DPWHCatalogItem, CatalogSearchParams } from '@/types';
+import type { DPWHCatalogItem, CatalogSearchParams, Trade } from '@/types';
 import catalogData from '@/data/dpwh-catalog.json';
 import { classifyDPWHItem } from '@/lib/dpwhClassification';
 
@@ -12,23 +12,14 @@ const catalogWithParts = catalog.map(item => ({
   partName: classifyDPWHItem(item.itemNumber, item.category).partName,
 }));
 
-/**
- * GET /api/catalog
- * Search and filter DPWH Volume III pay items
- * 
- * Query params:
- * - query: search term (searches item number and description)
- * - trade: filter by DPWH Part (e.g., PART C, PART D, etc.)
- * - category: filter by category
- * - limit: max results (default 1000, max 5000)
- */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     
+    const tradeParam = searchParams.get('trade') || undefined;
     const params: CatalogSearchParams = {
       query: searchParams.get('query') || undefined,
-      trade: searchParams.get('trade') || undefined,
+      trade: (tradeParam && tradeParam !== 'all') ? (tradeParam as Trade) : undefined,
       category: searchParams.get('category') || undefined,
       limit: Math.min(parseInt(searchParams.get('limit') || '1000'), 5000),
     };
@@ -36,7 +27,7 @@ export async function GET(request: NextRequest) {
     let results = [...catalogWithParts];
 
     // Filter by DPWH Part
-    if (params.trade && params.trade !== 'all') {
+    if (params.trade) {
       results = results.filter(item => item.part?.startsWith(params.trade as string));
     }
 

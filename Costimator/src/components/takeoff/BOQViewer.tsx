@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import type { BOQLine, TakeoffLine } from '@/types';
 import { classifyDPWHItem, sortDPWHParts } from '@/lib/dpwhClassification';
 import { exportBOQToCostEstimate, downloadAsJSON, downloadAsCSV } from '@/lib/exportBOQToCostEstimate';
-import { computeBOQItemCost, computeProjectCostSummary } from '@/lib/costing';
+import { computeBOQItemCost } from '@/lib/costing';
 import { recalculateCostsOnQuantityChange } from '@/lib/costing/services/real-time-costing';
 
 interface BOQViewerProps {
@@ -41,14 +41,13 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
-  const [lastCalculated, setLastCalculated] = useState<string | null>(null);
-  const [hasBoq, setHasBoq] = useState(false);
-  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState('all');
-  const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
-  const [costingEnabled, setCostingEnabled] = useState(false);
-  const [projectLocation, setProjectLocation] = useState('NCR');
+   const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
+   const [lastCalculated, setLastCalculated] = useState<string | null>(null);
+   const [hasBoq, setHasBoq] = useState(false);
+   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+   const [filterType, setFilterType] = useState('all');
+   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
+   const [costingEnabled, setCostingEnabled] = useState(false);
 
   // Load latest CalcRun on mount
   useEffect(() => {
@@ -196,9 +195,9 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
           laborItems: costs.laborItems,
           equipmentItems: costs.equipmentItems,
           materialItems: costs.materialItems,
-          location: projectLocation,
-          ratesAppliedAt: new Date(),
-          costingEnabled: true
+           location: projectId,
+           ratesAppliedAt: new Date(),
+           costingEnabled: true
         };
       });
       
@@ -685,7 +684,7 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>Costs calculated using demo rates. In production, rates will be matched from DUPA templates based on location: <strong>{projectLocation}</strong></span>
+            <span>Costs calculated using demo rates. In production, rates will be matched from DUPA templates based on project: <strong>{projectId}</strong></span>
           </div>
         </div>
       )}

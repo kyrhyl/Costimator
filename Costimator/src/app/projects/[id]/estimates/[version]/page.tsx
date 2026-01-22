@@ -1,14 +1,7 @@
 'use client';
 
 import { use, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-interface Project {
-  projectName: string;
-  projectLocation: string;
-  implementingOffice: string;
-}
 
 interface EstimateDetails {
   _id: string;
@@ -51,7 +44,6 @@ export default function EstimateDetailPage({
   params: Promise<{ id: string; version: string }>;
 }) {
   const { id, version } = use(params);
-  const router = useRouter();
   const [estimate, setEstimate] = useState<EstimateDetails | null>(null);
   const [loading, setLoading] = useState(true);
 

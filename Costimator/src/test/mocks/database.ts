@@ -60,7 +60,7 @@ export function createMockModel(collectionName: string) {
       });
 
       return {
-        sort: vi.fn((sortObj: any) => ({
+        sort: vi.fn(() => ({
           limit: vi.fn(() => ({
             exec: vi.fn(() => Promise.resolve(results))
           })),

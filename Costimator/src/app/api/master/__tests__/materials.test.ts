@@ -72,8 +72,8 @@ describe('Materials API', () => {
       expect(response.data.data.materialCode).toBe('TEST-MAT-LOWER');
     });
 
-    it('should default isActive to true', async () => {
-      const { isActive, ...materialWithoutActive } = testMaterial;
+     it('should default isActive to true', async () => {
+       const { isActive: _, ...materialWithoutActive } = testMaterial;
       
       vi.mocked(Material.findOne).mockResolvedValue(null);
       vi.mocked(Material.create).mockResolvedValue({

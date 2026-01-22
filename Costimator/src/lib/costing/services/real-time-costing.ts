@@ -18,7 +18,7 @@ export interface RealTimeCostingConfig {
  */
 export async function applyRealRates(
   boqItem: BOQLine,
-  location: string
+  location?: string
 ): Promise<BOQLine> {
   // In production, this would call a server action or API endpoint
   // For now, return the item unchanged

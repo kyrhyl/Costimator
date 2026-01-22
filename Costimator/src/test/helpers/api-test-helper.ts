@@ -51,7 +51,7 @@ export async function callRouteHandler(
   try {
     const text = await response.text();
     data = text ? JSON.parse(text) : null;
-  } catch (e) {
+  } catch (_) {
     data = null;
   }
 

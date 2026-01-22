@@ -34,7 +34,6 @@ const STATUS_COLORS = {
 };
 
 export default function ProjectsPage() {
-  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

@@ -536,6 +536,8 @@ export interface DPWHCatalogItem {
   trade: Trade; // Concrete, Rebar, or Formwork
   subCategory?: string;
   notes?: string;
+  part?: string; // DPWH Part (e.g., "PART A", "PART C", etc.)
+  partName?: string; // DPWH Part name (e.g., "General Requirements", "Earthwork")
 }
 
 export interface CatalogSearchParams {

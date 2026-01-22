@@ -29,7 +29,7 @@ export async function findDUPATemplate(payItemNumber: string): Promise<{
   matchStatus: 'exact' | 'normalized' | 'not-found';
 }> {
   // Try exact match first
-  let template = await DUPATemplate.findOne({ 
+  const template = await DUPATemplate.findOne({ 
     payItemNumber, 
     isActive: true 
   });

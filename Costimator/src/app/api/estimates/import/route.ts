@@ -11,26 +11,6 @@ import { ImportBoqSchema, validateInput } from '@/lib/validation/schemas';
 // Import BOQ data and compute estimate
 // =============================================
 
-interface ImportBOQRequest {
-  projectName: string;
-  projectLocation: string;
-  implementingOffice: string;
-  contractId?: string;
-  partNo?: string;
-  partDescription?: string;
-  boqLines: Array<{
-    itemNo: string;
-    description: string;
-    unit: string;
-    quantity: number;
-    payItemNumber?: string;  // Optional: Link to existing rate item
-    part?: string;
-    partDescription?: string;
-    division?: string;
-  }>;
-  useEvaluated?: boolean;    // Use evaluated costs instead of submitted (default: false)
-}
-
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();

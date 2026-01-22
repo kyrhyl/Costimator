@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import ProjectBOQ from '@/models/ProjectBOQ';
-import Project from '@/models/Project';
-import DUPATemplate from '@/models/DUPATemplate';
 import mongoose from 'mongoose';
 
 // GET /api/project-boq/:id
