@@ -3,7 +3,7 @@ import dbConnect from '@/lib/db/connect';
 import Estimate from '@/models/Estimate';
 
 // GET /api/estimates - List all estimates
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     await dbConnect();
     

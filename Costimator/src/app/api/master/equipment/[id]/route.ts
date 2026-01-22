@@ -51,12 +51,13 @@ function validateInput<T>(schema: z.ZodSchema<T>, data: unknown) {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const equipment = await Equipment.findById(params.id).lean();
+    const equipment = await Equipment.findById(id).lean();
     
     if (!equipment) {
       return NextResponse.json(
@@ -70,7 +71,7 @@ export async function GET(
       data: equipment
     });
   } catch (error: any) {
-    console.error(`GET /api/master/equipment/${params.id} error:`, error);
+    console.error(`GET /api/master/equipment/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
@@ -95,9 +96,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
     const body = await request.json();
@@ -125,7 +127,7 @@ export async function PATCH(
     if (updateData.no) {
       const existing = await Equipment.findOne({
         no: updateData.no,
-        _id: { $ne: params.id }
+        _id: { $ne: id }
       });
       
       if (existing) {
@@ -141,7 +143,7 @@ export async function PATCH(
     
     // Update equipment
     const equipment = await Equipment.findByIdAndUpdate(
-      params.id,
+      id,
       { $set: updateData },
       { new: true, runValidators: true }
     ).lean();
@@ -159,7 +161,7 @@ export async function PATCH(
       data: equipment
     });
   } catch (error: any) {
-    console.error(`PATCH /api/master/equipment/${params.id} error:`, error);
+    console.error(`PATCH /api/master/equipment/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
@@ -193,12 +195,13 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const equipment = await Equipment.findByIdAndDelete(params.id).lean();
+    const equipment = await Equipment.findByIdAndDelete(id).lean();
     
     if (!equipment) {
       return NextResponse.json(
@@ -213,7 +216,7 @@ export async function DELETE(
       data: equipment
     });
   } catch (error: any) {
-    console.error(`DELETE /api/master/equipment/${params.id} error:`, error);
+    console.error(`DELETE /api/master/equipment/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {

@@ -52,12 +52,13 @@ function validateInput<T>(schema: z.ZodSchema<T>, data: unknown) {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const price = await MaterialPrice.findById(params.id).lean();
+    const price = await MaterialPrice.findById(id).lean();
     
     if (!price) {
       return NextResponse.json(
@@ -71,7 +72,7 @@ export async function GET(
       data: price
     });
   } catch (error: any) {
-    console.error(`GET /api/master/materials/prices/${params.id} error:`, error);
+    console.error(`GET /api/master/materials/prices/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
@@ -96,9 +97,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
     const body = await request.json();
@@ -124,7 +126,7 @@ export async function PATCH(
     
     // Update material price
     const price = await MaterialPrice.findByIdAndUpdate(
-      params.id,
+      id,
       { $set: updateData },
       { new: true, runValidators: true }
     ).lean();
@@ -142,7 +144,7 @@ export async function PATCH(
       data: price
     });
   } catch (error: any) {
-    console.error(`PATCH /api/master/materials/prices/${params.id} error:`, error);
+    console.error(`PATCH /api/master/materials/prices/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
@@ -165,12 +167,13 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const price = await MaterialPrice.findByIdAndDelete(params.id).lean();
+    const price = await MaterialPrice.findByIdAndDelete(id).lean();
     
     if (!price) {
       return NextResponse.json(
@@ -185,7 +188,7 @@ export async function DELETE(
       data: price
     });
   } catch (error: any) {
-    console.error(`DELETE /api/master/materials/prices/${params.id} error:`, error);
+    console.error(`DELETE /api/master/materials/prices/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {

@@ -55,12 +55,13 @@ function validateInput<T>(schema: z.ZodSchema<T>, data: unknown) {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const laborRate = await LaborRate.findById(params.id).lean();
+    const laborRate = await LaborRate.findById(id).lean();
     
     if (!laborRate) {
       return NextResponse.json(
@@ -74,7 +75,7 @@ export async function GET(
       data: laborRate
     });
   } catch (error: any) {
-    console.error(`GET /api/master/labor/${params.id} error:`, error);
+    console.error(`GET /api/master/labor/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
@@ -99,9 +100,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
     const body = await request.json();
@@ -129,7 +131,7 @@ export async function PATCH(
     if (updateData.location) {
       const existing = await LaborRate.findOne({
         location: updateData.location,
-        _id: { $ne: params.id }
+        _id: { $ne: id }
       });
       
       if (existing) {
@@ -145,7 +147,7 @@ export async function PATCH(
     
     // Update labor rate
     const laborRate = await LaborRate.findByIdAndUpdate(
-      params.id,
+      id,
       { $set: updateData },
       { new: true, runValidators: true }
     ).lean();
@@ -163,7 +165,7 @@ export async function PATCH(
       data: laborRate
     });
   } catch (error: any) {
-    console.error(`PATCH /api/master/labor/${params.id} error:`, error);
+    console.error(`PATCH /api/master/labor/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
@@ -197,12 +199,13 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const laborRate = await LaborRate.findByIdAndDelete(params.id).lean();
+    const laborRate = await LaborRate.findByIdAndDelete(id).lean();
     
     if (!laborRate) {
       return NextResponse.json(
@@ -217,7 +220,7 @@ export async function DELETE(
       data: laborRate
     });
   } catch (error: any) {
-    console.error(`DELETE /api/master/labor/${params.id} error:`, error);
+    console.error(`DELETE /api/master/labor/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {

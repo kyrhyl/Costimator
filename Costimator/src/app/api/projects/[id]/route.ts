@@ -78,19 +78,20 @@ const ProjectUpdateSchema = z.object({
 // GET /api/projects/:id - Get single project with estimates
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
+    const { id } = await params;
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid project ID' },
         { status: 400 }
       );
     }
 
-    const project = await Project.findById(params.id).lean();
+    const project = await Project.findById(id).lean();
 
     if (!project) {
       return NextResponse.json(
@@ -102,7 +103,7 @@ export async function GET(
     console.log('GET project haulingConfig:', JSON.stringify((project as any).haulingConfig, null, 2));
 
     // Get associated estimates count
-    const estimatesCount = await Estimate.countDocuments({ projectId: params.id });
+    const estimatesCount = await Estimate.countDocuments({ projectId: id });
 
     return NextResponse.json({
       success: true,
@@ -123,12 +124,13 @@ export async function GET(
 // PATCH /api/projects/:id - Update project
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
+    const { id } = await params;
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid project ID' },
         { status: 400 }
@@ -148,7 +150,7 @@ export async function PATCH(
     if (validatedData.contractId) {
       const existing = await Project.findOne({
         contractId: validatedData.contractId,
-        _id: { $ne: params.id },
+        _id: { $ne: id },
       });
 
       if (existing) {
@@ -163,7 +165,7 @@ export async function PATCH(
     }
 
     const project = await Project.findByIdAndUpdate(
-      params.id,
+      id,
       validatedData,
       { new: true, runValidators: true }
     );
@@ -204,12 +206,13 @@ export async function PATCH(
 // DELETE /api/projects/:id - Delete project
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
+    const { id } = await params;
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid project ID' },
         { status: 400 }
@@ -217,7 +220,7 @@ export async function DELETE(
     }
 
     // Check if project has estimates
-    const estimatesCount = await Estimate.countDocuments({ projectId: params.id });
+    const estimatesCount = await Estimate.countDocuments({ projectId: id });
 
     if (estimatesCount > 0) {
       return NextResponse.json(
@@ -229,7 +232,7 @@ export async function DELETE(
       );
     }
 
-    const project = await Project.findByIdAndDelete(params.id);
+    const project = await Project.findByIdAndDelete(id);
 
     if (!project) {
       return NextResponse.json(

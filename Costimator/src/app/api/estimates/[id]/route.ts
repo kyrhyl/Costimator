@@ -5,12 +5,13 @@ import Estimate from '@/models/Estimate';
 // GET /api/estimates/:id - Get a specific estimate
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const estimate = await Estimate.findById(params.id);
+    const estimate = await Estimate.findById(id);
     
     if (!estimate) {
       return NextResponse.json(
@@ -34,9 +35,10 @@ export async function GET(
 // PUT /api/estimates/:id - Update an estimate
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
     const body = await request.json();
@@ -156,7 +158,7 @@ export async function PUT(
     
     // Update the estimate
     const estimate = await Estimate.findByIdAndUpdate(
-      params.id,
+      id,
       {
         projectName: body.projectName,
         projectLocation: body.projectLocation,
@@ -201,12 +203,13 @@ export async function PUT(
 // DELETE /api/estimates/:id - Delete an estimate
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const estimate = await Estimate.findByIdAndDelete(params.id);
+    const estimate = await Estimate.findByIdAndDelete(id);
     
     if (!estimate) {
       return NextResponse.json(

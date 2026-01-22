@@ -30,12 +30,11 @@ const InstantiateRequestSchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
-
-    const { id } = params;
     
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(id)) {

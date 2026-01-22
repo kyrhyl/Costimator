@@ -42,7 +42,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'estimates'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'estimates' | 'takeoff'>('overview');
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [loadingEstimates, setLoadingEstimates] = useState(false);
   const [generatingEstimate, setGeneratingEstimate] = useState(false);
@@ -288,6 +288,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             Project Overview
           </button>
           <button
+            onClick={() => setActiveTab('takeoff')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'takeoff'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Quantity Takeoff
+          </button>
+          <button
             onClick={() => setActiveTab('estimates')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'estimates'
@@ -436,6 +446,26 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <p>Last Updated: {new Date(project.updatedAt).toLocaleString()}</p>
           </div>
         </>
+      )}
+
+      {activeTab === 'takeoff' && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="text-center py-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Quantity Takeoff Workspace</h3>
+            <p className="text-gray-600 mb-6">
+              Access the quantity takeoff workspace to model structural elements and generate quantities.
+            </p>
+            <Link
+              href={`/takeoff/${id}`}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Open Takeoff Workspace
+            </Link>
+          </div>
+        </div>
       )}
 
       {activeTab === 'estimates' && (

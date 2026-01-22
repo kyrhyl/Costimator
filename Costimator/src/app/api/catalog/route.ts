@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
  * POST /api/catalog
  * Get catalog statistics
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const stats = {
       totalItems: catalogWithParts.length,

@@ -6,19 +6,20 @@ import mongoose from 'mongoose';
 // GET /api/project-boq/:id
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid BOQ item ID' },
         { status: 400 }
       );
     }
     
-    const boqItem = await ProjectBOQ.findById(params.id)
+    const boqItem = await ProjectBOQ.findById(id)
       .populate('projectId')
       .populate('templateId');
     
@@ -51,12 +52,13 @@ export async function GET(
 // PATCH /api/project-boq/:id - Update BOQ item (recalculate or update fields)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid BOQ item ID' },
         { status: 400 }
@@ -69,7 +71,7 @@ export async function PATCH(
     if (body.laborComputed) {
       // Full recalculation - update with new computed values
       const updated = await ProjectBOQ.findByIdAndUpdate(
-        params.id,
+        id,
         {
           $set: {
             laborItems: body.laborComputed,
@@ -107,14 +109,14 @@ export async function PATCH(
     } else {
       // Simple update (e.g., quantity change)
       if (body.quantity !== undefined) {
-        const boqItem = await ProjectBOQ.findById(params.id);
+        const boqItem = await ProjectBOQ.findById(id);
         if (boqItem) {
           body.totalAmount = boqItem.totalCost * body.quantity;
         }
       }
       
       const updated = await ProjectBOQ.findByIdAndUpdate(
-        params.id,
+        id,
         { $set: body },
         { new: true, runValidators: true }
       );
@@ -143,19 +145,20 @@ export async function PATCH(
 // DELETE /api/project-boq/:id
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid BOQ item ID' },
         { status: 400 }
       );
     }
     
-    const deleted = await ProjectBOQ.findByIdAndDelete(params.id);
+    const deleted = await ProjectBOQ.findByIdAndDelete(id);
     
     if (!deleted) {
       return NextResponse.json(

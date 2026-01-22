@@ -32,12 +32,13 @@ const UpdatePayItemSchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const payItem = await PayItem.findById(params.id);
+    const payItem = await PayItem.findById(id);
     
     if (!payItem) {
       return NextResponse.json(
@@ -66,9 +67,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
     const body = await request.json();
@@ -89,7 +91,7 @@ export async function PATCH(
     if (validation.data.payItemNumber) {
       const existing = await PayItem.findOne({
         payItemNumber: validation.data.payItemNumber,
-        _id: { $ne: params.id }
+        _id: { $ne: id }
       });
       
       if (existing) {
@@ -101,7 +103,7 @@ export async function PATCH(
     }
     
     const payItem = await PayItem.findByIdAndUpdate(
-      params.id,
+      id,
       validation.data,
       { new: true, runValidators: true }
     );
@@ -134,12 +136,13 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const payItem = await PayItem.findByIdAndDelete(params.id);
+    const payItem = await PayItem.findByIdAndDelete(id);
     
     if (!payItem) {
       return NextResponse.json(

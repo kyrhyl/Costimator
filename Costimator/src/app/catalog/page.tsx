@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { DPWHCatalogItem, Trade } from '@/types';
 
 interface CatalogResponse {
@@ -32,15 +32,7 @@ export default function CatalogPage() {
     { value: 'PART G', label: 'Part G - Marine & Other Works' },
   ];
 
-  useEffect(() => {
-    fetchCatalogStats();
-  }, []);
-
-  useEffect(() => {
-    fetchCatalog();
-  }, [searchQuery, selectedTrade, selectedCategory]);
-
-  const fetchCatalogStats = async () => {
+  const fetchCatalogStats = useCallback(async () => {
     try {
       const response = await fetch('/api/catalog', { method: 'POST' });
       const result = await response.json();
@@ -50,9 +42,9 @@ export default function CatalogPage() {
     } catch (err) {
       console.error('Failed to fetch catalog stats:', err);
     }
-  };
+  }, []);
 
-  const fetchCatalog = async () => {
+  const fetchCatalog = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -77,7 +69,15 @@ export default function CatalogPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, selectedTrade, selectedCategory]);
+
+  useEffect(() => {
+    fetchCatalogStats();
+  }, [fetchCatalogStats]);
+
+  useEffect(() => {
+    fetchCatalog();
+  }, [fetchCatalog]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">

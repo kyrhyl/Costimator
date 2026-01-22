@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
 interface DUPATemplate {
@@ -41,11 +41,7 @@ export default function DUPATemplatesPage() {
   const [useEvaluated, setUseEvaluated] = useState(false);
   const [instantiating, setInstantiating] = useState(false);
 
-  useEffect(() => {
-    fetchTemplates();
-  }, [searchTerm, categoryFilter, statusFilter]);
-
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -71,7 +67,11 @@ export default function DUPATemplatesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, categoryFilter, statusFilter]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
 
   const handleDelete = async (template: DUPATemplate) => {
     if (!confirm(`Are you sure you want to delete template "${template.payItemNumber}"?`)) {

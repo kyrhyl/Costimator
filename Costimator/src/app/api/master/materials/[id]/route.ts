@@ -50,12 +50,13 @@ function validateInput<T>(schema: z.ZodSchema<T>, data: unknown) {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const material = await Material.findById(params.id).lean();
+    const material = await Material.findById(id).lean();
     
     if (!material) {
       return NextResponse.json(
@@ -69,7 +70,7 @@ export async function GET(
       data: material
     });
   } catch (error: any) {
-    console.error(`GET /api/master/materials/${params.id} error:`, error);
+    console.error(`GET /api/master/materials/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
@@ -94,9 +95,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
     const body = await request.json();
@@ -124,7 +126,7 @@ export async function PATCH(
     if (updateData.materialCode) {
       const existing = await Material.findOne({
         materialCode: updateData.materialCode,
-        _id: { $ne: params.id }
+        _id: { $ne: id }
       });
       
       if (existing) {
@@ -140,7 +142,7 @@ export async function PATCH(
     
     // Update material
     const material = await Material.findByIdAndUpdate(
-      params.id,
+      id,
       { $set: updateData },
       { new: true, runValidators: true }
     ).lean();
@@ -158,7 +160,7 @@ export async function PATCH(
       data: material
     });
   } catch (error: any) {
-    console.error(`PATCH /api/master/materials/${params.id} error:`, error);
+    console.error(`PATCH /api/master/materials/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
@@ -192,12 +194,13 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
     
-    const material = await Material.findByIdAndDelete(params.id).lean();
+    const material = await Material.findByIdAndDelete(id).lean();
     
     if (!material) {
       return NextResponse.json(
@@ -212,7 +215,7 @@ export async function DELETE(
       data: material
     });
   } catch (error: any) {
-    console.error(`DELETE /api/master/materials/${params.id} error:`, error);
+    console.error(`DELETE /api/master/materials/[id] error:`, error);
     
     // Handle invalid ObjectId
     if (error.name === 'CastError') {
