@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Project {
   _id: string;
@@ -33,6 +34,7 @@ const STATUS_COLORS = {
 };
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,6 +46,9 @@ export default function ProjectsPage() {
     total: 0,
     pages: 0,
   });
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [newProjectName, setNewProjectName] = useState('');
 
   const fetchProjects = async () => {
     try {
@@ -94,6 +99,57 @@ export default function ProjectsPage() {
     } catch (error) {
       console.error('Failed to delete project:', error);
       alert('Failed to delete project');
+    }
+  };
+
+  const handleDuplicateClick = (project: Project) => {
+    setSelectedProject(project);
+    setNewProjectName(`${project.projectName} (Copy)`);
+    setDuplicateModalOpen(true);
+  };
+
+  const handleDuplicate = async () => {
+    if (!selectedProject || !newProjectName.trim()) {
+      alert('Please enter a project name');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/projects/${selectedProject._id}/duplicate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectName: newProjectName.trim(),
+          projectLocation: selectedProject.projectLocation,
+          copyGrid: true,
+          copyLevels: true,
+          copyElementTemplates: true,
+          copyElementInstances: true,
+          copySettings: true,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setDuplicateModalOpen(false);
+        setSelectedProject(null);
+        setNewProjectName('');
+        
+        // Redirect to edit page for the new project
+        if (confirm(`Project duplicated successfully!\n\nWould you like to edit "${newProjectName}" now to make adjustments?`)) {
+          router.push(`/projects/${result.data._id}/edit`);
+        } else {
+          fetchProjects();
+        }
+      } else {
+        alert('Failed to duplicate project: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Failed to duplicate project:', error);
+      alert('Failed to duplicate project');
     }
   };
 
@@ -267,6 +323,12 @@ export default function ProjectsPage() {
                             View
                           </Link>
                           <button
+                            onClick={() => handleDuplicateClick(project)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Duplicate
+                          </button>
+                          <button
                             onClick={() => handleDelete(project._id)}
                             className="text-red-600 hover:text-red-900"
                           >
@@ -307,6 +369,61 @@ export default function ProjectsPage() {
           </div>
         )}
       </div>
+
+      {/* Duplicate Project Modal */}
+      {duplicateModalOpen && selectedProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Duplicate Project
+            </h2>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Source Project: <span className="font-medium">{selectedProject.projectName}</span>
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                This will copy the grid system, levels, element templates, and instances. 
+                Calculations and cost estimates will NOT be copied and must be regenerated.
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                New Project Name *
+              </label>
+              <input
+                type="text"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                placeholder="Enter new project name..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex space-x-3 justify-end">
+              <button
+                onClick={() => {
+                  setDuplicateModalOpen(false);
+                  setSelectedProject(null);
+                  setNewProjectName('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDuplicate}
+                disabled={!newProjectName.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Duplicate Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -152,10 +152,26 @@ export interface IProject extends Document {
     xLines?: IGridLine[];
     yLines?: IGridLine[];
   };
+  gridX?: IGridLine[];
+  gridY?: IGridLine[];
   levels?: ILevel[];
   elementTemplates?: IElementTemplate[];
   elementInstances?: IElementInstance[];
   settings?: IProjectSettings;
+
+  // Part E - Finishing Works
+  spaces?: any[];
+  openings?: any[];
+  finishTypes?: any[];
+  spaceFinishAssignments?: any[];
+  wallSurfaces?: any[];
+  wallSurfaceFinishAssignments?: any[];
+  
+  // Part E - Roofing
+  trussDesign?: any;
+  roofTypes?: any[];
+  roofPlanes?: any[];
+  scheduleItems?: any[];
 
   // Timestamps
   createdAt: Date;
@@ -227,6 +243,229 @@ const ElementInstanceSchema = new Schema<IElementInstance>({
     customGeometry: { type: Map, of: Number },
   },
   tags: [String],
+});
+
+// ===================================
+// PART E - FINISHING WORKS SCHEMAS
+// ===================================
+
+const SpaceSchema = new Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  levelId: { type: String, required: true },
+  boundary: {
+    type: { type: String, enum: ['gridRect', 'polygon'], required: true },
+    data: { type: Schema.Types.Mixed, required: true },
+  },
+  computed: {
+    area_m2: { type: Number, default: 0 },
+    perimeter_m: { type: Number, default: 0 },
+  },
+  metadata: { type: Map, of: String },
+  tags: [String],
+});
+
+const OpeningSchema = new Schema({
+  id: { type: String, required: true },
+  levelId: { type: String, required: true },
+  spaceId: String,
+  wallSurfaceId: String,
+  type: { type: String, enum: ['door', 'window', 'vent', 'louver', 'other'], required: true },
+  width_m: { type: Number, required: true },
+  height_m: { type: Number, required: true },
+  qty: { type: Number, required: true, default: 1 },
+  computed: {
+    area_m2: { type: Number, default: 0 },
+  },
+  tags: [String],
+});
+
+const FinishTypeSchema = new Schema({
+  id: { type: String, required: true },
+  category: { type: String, enum: ['floor', 'wall', 'ceiling', 'plaster', 'paint'], required: true },
+  finishName: { type: String, required: true },
+  dpwhItemNumberRaw: { type: String, required: true },
+  unit: { type: String, required: true },
+  wallHeightRule: {
+    mode: { type: String, enum: ['fullHeight', 'fixed'], default: 'fullHeight' },
+    value_m: Number,
+  },
+  deductionRule: {
+    enabled: { type: Boolean, default: true },
+    minOpeningAreaToDeduct_m2: { type: Number, default: 0.5 },
+    includeTypes: [String],
+  },
+  assumptions: {
+    wastePercent: Number,
+    rounding: Number,
+    notes: String,
+  },
+});
+
+const SpaceFinishAssignmentSchema = new Schema({
+  id: { type: String, required: true },
+  spaceId: { type: String, required: true },
+  finishTypeId: { type: String, required: true },
+  scope: { type: String, required: true },
+  overrides: {
+    height_m: Number,
+    wastePercent: Number,
+  },
+});
+
+const WallSurfaceSchema = new Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  gridLine: {
+    axis: { type: String, enum: ['X', 'Y'], required: true },
+    label: { type: String, required: true },
+    span: { type: [String], required: true },
+  },
+  levelStart: { type: String, required: true },
+  levelEnd: { type: String, required: true },
+  surfaceType: { type: String, enum: ['exterior', 'interior', 'both'], required: true },
+  facing: { type: String, enum: ['north', 'south', 'east', 'west'] },
+  computed: {
+    length_m: { type: Number, default: 0 },
+    height_m: { type: Number, default: 0 },
+    grossArea_m2: { type: Number, default: 0 },
+    sidesCount: { type: Number, default: 1 },
+    totalArea_m2: { type: Number, default: 0 },
+  },
+  tags: [String],
+});
+
+const WallSurfaceFinishAssignmentSchema = new Schema({
+  id: { type: String, required: true },
+  wallSurfaceId: { type: String, required: true },
+  finishTypeId: { type: String, required: true },
+  scope: { type: String, required: true },
+  side: { type: String, enum: ['single', 'both'] },
+  overrides: {
+    wastePercent: Number,
+  },
+});
+
+// ===================================
+// PART E - ROOFING SCHEMAS
+// ===================================
+
+const TrussDesignSchema = new Schema({
+  trussParams: {
+    type: { type: String, enum: ['howe', 'fink', 'kingpost'], default: 'howe' },
+    span_mm: { type: Number, default: 8000 },
+    middleRise_mm: { type: Number, default: 1600 },
+    overhang_mm: { type: Number, default: 450 },
+    spacing_mm: { type: Number, default: 600 },
+    verticalWebCount: { type: Number, default: 3 },
+    plateThickness: { type: String, default: '1.0mm (20 gauge)' },
+    topChordMaterial: {
+      section: { type: String, default: 'C100x50x20x2.5' },
+      weight_kg_per_m: { type: Number, default: 4.89 }
+    },
+    bottomChordMaterial: {
+      section: { type: String, default: 'C100x50x20x2.5' },
+      weight_kg_per_m: { type: Number, default: 4.89 }
+    },
+    webMaterial: {
+      section: { type: String, default: '2L50x50x6' },
+      weight_kg_per_m: { type: Number, default: 4.5 }
+    }
+  },
+  buildingLength_mm: { type: Number, default: 10000 },
+  framingParams: {
+    roofingMaterial: {
+      type: { type: String, default: 'GI_Sheet' },
+      maxPurlinSpacing_mm: { type: Number, default: 1200 }
+    },
+    purlinSpacing_mm: { type: Number, default: 600 },
+    purlinSpec: {
+      section: { type: String, default: 'C100x50x20x2.0' },
+      weight_kg_per_m: { type: Number, default: 4.07 }
+    },
+    bracing: {
+      type: { type: String, enum: ['X-Brace', 'Diagonal', 'K-Brace'], default: 'X-Brace' },
+      interval_mm: { type: Number, default: 6000 },
+      material: {
+        section: { type: String, default: '2L50x50x6' },
+        weight_kg_per_m: { type: Number, default: 4.6 }
+      }
+    },
+    includeRidgeCap: { type: Boolean, default: true },
+    includeEaveGirt: { type: Boolean, default: true }
+  },
+  dpwhItemMappings: {
+    trussSteel: {
+      dpwhItemNumberRaw: { type: String, default: '1047 (8) a' },
+      description: { type: String, default: 'Structural Steel Trusses' },
+      unit: { type: String, default: 'Kilogram' }
+    },
+    purlinSteel: {
+      dpwhItemNumberRaw: { type: String, default: '1047 (8) b' },
+      description: { type: String, default: 'Structural Steel Purlins' },
+      unit: { type: String, default: 'Kilogram' }
+    },
+    bracingSteel: {
+      dpwhItemNumberRaw: { type: String, default: '1047 (4) b' },
+      description: { type: String, default: 'Metal Structure Accessories Turnbuckle' },
+      unit: { type: String, default: 'Each' }
+    },
+    sagRods: {
+      dpwhItemNumberRaw: { type: String, default: '1047 (5) b' },
+      description: { type: String, default: 'Metal Structure Accessories Sagrods' },
+      unit: { type: String, default: 'Kilogram' }
+    },
+    boltsAndRods: {
+      dpwhItemNumberRaw: { type: String, default: '1047 (5) a' },
+      description: { type: String, default: 'Metal Structure Accessories Bolts and Rods' },
+      unit: { type: String, default: 'Kilogram' }
+    },
+    steelPlates: {
+      dpwhItemNumberRaw: { type: String, default: '1047 (5) d' },
+      description: { type: String, default: 'Metal Structure Accessories Steel Plates' },
+      unit: { type: String, default: 'Kilogram' }
+    },
+  },
+  lastModified: { type: Date, default: Date.now }
+});
+
+const RoofTypeSchema = new Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  roofingMaterial: { type: String, default: 'GI_Sheet' },
+  pitch: { type: Number, default: 4 },
+  overhang_m: { type: Number, default: 0.6 },
+  assumptions: {
+    wastePercent: Number,
+    notes: String,
+  },
+});
+
+const RoofPlaneSchema = new Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  roofTypeId: { type: String, required: true },
+  boundary: {
+    type: { type: String, enum: ['gridRect', 'polygon'], required: true },
+    data: { type: Schema.Types.Mixed, required: true },
+  },
+  computed: {
+    area_m2: { type: Number, default: 0 },
+    slopedArea_m2: { type: Number, default: 0 },
+  },
+  tags: [String],
+});
+
+const ScheduleItemSchema = new Schema({
+  id: { type: String, required: true },
+  category: { type: String, required: true },
+  itemName: { type: String, required: true },
+  dpwhItemNumberRaw: { type: String, required: true },
+  unit: { type: String, required: true },
+  quantity: { type: Number, required: true },
+  levelId: String,
+  tags: [String],
+  notes: String,
 });
 
 // Main Project Schema
@@ -352,6 +591,20 @@ const ProjectSchema = new Schema<IProject>(
       type: Schema.Types.Mixed,
       default: defaultSettings,
     },
+
+    // Part E - Finishing Works
+    spaces: [SpaceSchema],
+    openings: [OpeningSchema],
+    finishTypes: [FinishTypeSchema],
+    spaceFinishAssignments: [SpaceFinishAssignmentSchema],
+    wallSurfaces: [WallSurfaceSchema],
+    wallSurfaceFinishAssignments: [WallSurfaceFinishAssignmentSchema],
+    
+    // Part E - Roofing
+    trussDesign: TrussDesignSchema,
+    roofTypes: [RoofTypeSchema],
+    roofPlanes: [RoofPlaneSchema],
+    scheduleItems: [ScheduleItemSchema],
   },
   {
     timestamps: true,
