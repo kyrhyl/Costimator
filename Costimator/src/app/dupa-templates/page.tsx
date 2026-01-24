@@ -41,6 +41,13 @@ export default function DUPATemplatesPage() {
   const [useEvaluated, setUseEvaluated] = useState(false);
   const [instantiating, setInstantiating] = useState(false);
 
+  // Generate defaults modal
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generatePart, setGeneratePart] = useState('');
+  const [overwriteExisting, setOverwriteExisting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generateResult, setGenerateResult] = useState<any>(null);
+
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
@@ -122,6 +129,36 @@ export default function DUPATemplatesPage() {
     setShowInstantiateModal(true);
   };
 
+  const handleGenerateDefaults = async () => {
+    try {
+      setGenerating(true);
+      setGenerateResult(null);
+
+      const response = await fetch('/api/dupa-templates/generate-defaults', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          part: generatePart || undefined,
+          overwriteExisting,
+          includeInactive: false,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGenerateResult(data.data);
+        fetchTemplates(); // Refresh the list
+      } else {
+        alert(data.error || 'Failed to generate templates');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to generate templates');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handleInstantiate = async () => {
     if (!selectedTemplate || !instantiateLocation.trim()) {
       alert('Please enter a location');
@@ -165,12 +202,20 @@ export default function DUPATemplatesPage() {
               Manage reusable unit price analysis templates
             </p>
           </div>
-          <Link
-            href="/dupa-templates/new"
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            + Create Template
-          </Link>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowGenerateModal(true)}
+              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              ⚡ Generate Defaults
+            </button>
+            <Link
+              href="/dupa-templates/new"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              + Create Template
+            </Link>
+          </div>
         </div>
 
         {/* Filters */}
@@ -417,6 +462,144 @@ export default function DUPATemplatesPage() {
                 {instantiating ? 'Creating...' : 'Instantiate'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Defaults Modal */}
+      {showGenerateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              Generate Default DUPA Templates
+            </h3>
+            
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 mb-2">Default Configuration:</h4>
+              <div className="text-sm text-blue-800 space-y-1">
+                <p><strong>Labor:</strong></p>
+                <ul className="list-disc list-inside ml-4">
+                  <li>Foreman: 1 person × 1 hour</li>
+                  <li>Skilled Labor: 1 person × 1 hour</li>
+                  <li>Unskilled Labor: 2 persons × 1 hour</li>
+                </ul>
+                <p className="mt-2"><strong>Equipment:</strong> Blank (user will specify)</p>
+                <p><strong>Materials:</strong> Blank (user will specify)</p>
+                <p className="mt-2"><strong>Add-ons:</strong> OCM 15%, CP 10%, VAT 12%, Minor Tools 10%</p>
+              </div>
+            </div>
+
+            {!generateResult ? (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Filter by Part (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={generatePart}
+                    onChange={(e) => setGeneratePart(e.target.value)}
+                    placeholder="e.g., PART D (leave blank for all parts)"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave blank to generate templates for all active pay items
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={overwriteExisting}
+                      onChange={(e) => setOverwriteExisting(e.target.checked)}
+                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700">
+                      Overwrite existing templates
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-500 ml-6">
+                    If unchecked, existing templates will be skipped
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowGenerateModal(false);
+                      setGeneratePart('');
+                      setOverwriteExisting(false);
+                      setGenerateResult(null);
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    disabled={generating}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleGenerateDefaults}
+                    disabled={generating}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {generating ? 'Generating...' : 'Generate Templates'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-6 space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-900 mb-3">Generation Complete!</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Total Pay Items:</p>
+                        <p className="text-2xl font-bold text-gray-900">{generateResult.total}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Templates Created:</p>
+                        <p className="text-2xl font-bold text-green-600">{generateResult.created}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Templates Updated:</p>
+                        <p className="text-2xl font-bold text-blue-600">{generateResult.updated}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Skipped (Existing):</p>
+                        <p className="text-2xl font-bold text-gray-600">{generateResult.skipped}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {generateResult.errors && generateResult.errors.length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-yellow-900 mb-2">
+                        Errors ({generateResult.errors.length}):
+                      </h4>
+                      <div className="text-sm text-yellow-800 max-h-40 overflow-y-auto">
+                        {generateResult.errors.map((err: string, idx: number) => (
+                          <p key={idx} className="mb-1">• {err}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setShowGenerateModal(false);
+                      setGeneratePart('');
+                      setOverwriteExisting(false);
+                      setGenerateResult(null);
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
