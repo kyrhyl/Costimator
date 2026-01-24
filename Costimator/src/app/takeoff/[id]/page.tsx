@@ -11,7 +11,7 @@ import GridEditorWrapper from './components/GridEditorWrapper';
 import LevelsEditorWrapper from './components/LevelsEditorWrapper';
 import ElementInstancesWrapper from './components/ElementInstancesWrapper';
 import FloorPlanVisualizationWrapper from './components/FloorPlanVisualizationWrapper';
-import BOQViewerWrapper from './components/BOQViewerWrapper';
+import BOQViewer from '@/components/takeoff/BOQViewer';
 import EarthworkItems from '@/components/takeoff/EarthworkItems';
 import ExcavationStations from '@/components/takeoff/ExcavationStations';
 import StructureExcavation from '@/components/takeoff/StructureExcavation';
@@ -669,7 +669,7 @@ export default function TakeoffWorkspacePage() {
 
         {/* Reports Content */}
         {activeTab === 'takeoff' && <TakeoffViewer projectId={projectId} />}
-        {activeTab === 'boq' && <BOQViewerWrapper projectId={projectId} />}
+        {activeTab === 'boq' && <BOQViewer projectId={projectId} takeoffLines={[]} />}
         {activeTab === 'versions' && (
           <div className="bg-white rounded-lg p-6">
             <CalcRunList projectId={projectId} />
