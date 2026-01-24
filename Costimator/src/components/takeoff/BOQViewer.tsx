@@ -96,38 +96,36 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
   const loadCalcRunData = async (runId: string) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/projects/${projectId}/calcruns/latest`);
+      const res = await fetch(`/api/projects/${projectId}/calcruns/${runId}`);
       if (res.ok) {
         const result = await res.json();
         const data: CalcRun = result.success ? result.data : result;
         
-        if (data.runId === runId || !runId) {
-          if (data.boqLines && data.boqLines.length > 0) {
-            setBoqLines(data.boqLines);
-            const concreteLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Concrete'));
-            const rebarLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Rebar'));
-            const formworkLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Formwork'));
-            const totalConcreteQty = concreteLines.reduce((sum, line) => sum + line.quantity, 0);
-            const totalRebarQty = rebarLines.reduce((sum, line) => sum + line.quantity, 0);
-            const totalFormworkQty = formworkLines.reduce((sum, line) => sum + line.quantity, 0);
-            setSummary({
-              totalLines: data.summary.boqLineCount || 0,
-              totalQuantity: totalConcreteQty + totalRebarQty + totalFormworkQty,
-              trades: { 
-                Concrete: totalConcreteQty,
-                Rebar: totalRebarQty,
-                Formwork: totalFormworkQty,
-              },
-            });
-            setLastCalculated(data.timestamp);
-            setHasBoq(true);
-            setCurrentRunId(data.runId);
-          } else {
-            setHasBoq(false);
-            setBoqLines([]);
-            setSummary(null);
-            setCurrentRunId(data.runId);
-          }
+        if (data.boqLines && data.boqLines.length > 0) {
+          setBoqLines(data.boqLines);
+          const concreteLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Concrete'));
+          const rebarLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Rebar'));
+          const formworkLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Formwork'));
+          const totalConcreteQty = concreteLines.reduce((sum, line) => sum + line.quantity, 0);
+          const totalRebarQty = rebarLines.reduce((sum, line) => sum + line.quantity, 0);
+          const totalFormworkQty = formworkLines.reduce((sum, line) => sum + line.quantity, 0);
+          setSummary({
+            totalLines: data.summary.boqLineCount || 0,
+            totalQuantity: totalConcreteQty + totalRebarQty + totalFormworkQty,
+            trades: { 
+              Concrete: totalConcreteQty,
+              Rebar: totalRebarQty,
+              Formwork: totalFormworkQty,
+            },
+          });
+          setLastCalculated(data.timestamp);
+          setHasBoq(true);
+          setCurrentRunId(data.runId);
+        } else {
+          setHasBoq(false);
+          setBoqLines([]);
+          setSummary(null);
+          setCurrentRunId(data.runId);
         }
       }
     } catch (err) {

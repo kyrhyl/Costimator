@@ -22,7 +22,7 @@ import SpacesManager from '@/components/takeoff/PartE/SpacesManager';
 import WallSurfacesManager from '@/components/takeoff/PartE/WallSurfacesManager';
 import FinishesManager from '@/components/takeoff/PartE/FinishesManager';
 import RoofingManager from '@/components/takeoff/PartE/RoofingManager';
-import VersionManager from '@/components/versioning/VersionManager';
+import CalcRunList from '@/components/takeoff/CalcRunList';
 
 interface IProject {
   _id: string;
@@ -672,15 +672,7 @@ export default function TakeoffWorkspacePage() {
         {activeTab === 'boq' && <BOQViewerWrapper projectId={projectId} />}
         {activeTab === 'versions' && (
           <div className="bg-white rounded-lg p-6">
-            <VersionManager
-              projectId={projectId}
-              onVersionChange={(versionId) => {
-                console.log('Version changed:', versionId);
-              }}
-              onEstimateChange={(estimateId) => {
-                console.log('Estimate changed:', estimateId);
-              }}
-            />
+            <CalcRunList projectId={projectId} />
           </div>
         )}
           </div>
