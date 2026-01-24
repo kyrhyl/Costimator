@@ -147,18 +147,11 @@ export async function POST(
     // SUMMARY
     // ===================================
     const summary = {
-      totalConcreteVolume,
-      totalRebarWeight,
-      totalFormworkArea,
-      totalFloorArea,
-      totalWallArea,
-      totalCeilingArea,
-      totalRoofArea,
+      totalConcrete: totalConcreteVolume, // m³
+      totalRebar: totalRebarWeight, // kg
+      totalFormwork: totalFormworkArea, // m²
       takeoffLineCount: allTakeoffLines.length,
-      elementCount: project.elementInstances?.length || 0,
-      spaceCount: project.spaces?.length || 0,
-      roofPlaneCount: project.roofPlanes?.length || 0,
-      scheduleItemCount: project.scheduleItems?.length || 0,
+      boqLineCount: 0, // BOQ is generated separately
     };
 
     // Create calc run record
@@ -166,7 +159,7 @@ export async function POST(
       runId,
       projectId: id,
       timestamp: new Date(),
-      status: errors.length > 0 ? 'completed_with_errors' : 'completed',
+      status: 'completed', // 'running', 'completed', or 'failed'
       summary,
       takeoffLines: allTakeoffLines,
       boqLines: [], // BOQ generation is separate (via /api/projects/[id]/boq)
