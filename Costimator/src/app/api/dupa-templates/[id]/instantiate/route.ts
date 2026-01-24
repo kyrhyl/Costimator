@@ -32,30 +32,57 @@ const InstantiateRequestSchema = z.object({
 /**
  * Get material price with district-based priority
  * Priority:
- * 1. District-specific active price
+ * 1. District-specific active price (with optional CMPD version match)
  * 2. Material base price
  */
 async function getMaterialPrice(
   materialCode: string,
   district?: string,
-  effectiveDate?: Date
+  effectiveDate?: Date,
+  cmpdVersion?: string
 ): Promise<number> {
   // Priority 1: Try district-specific price
   if (district) {
-    const districtPrice: any = await MaterialPrice.findOne({
+    const query: any = {
       materialCode: materialCode,
       district: district,
       isActive: true,
       effectiveDate: effectiveDate 
         ? { $lte: effectiveDate } 
         : { $exists: true }
-    })
+    };
+    
+    // If CMPD version is specified, prefer that version
+    if (cmpdVersion) {
+      query.cmpd_version = cmpdVersion;
+    }
+    
+    const districtPrice: any = await MaterialPrice.findOne(query)
       .sort({ effectiveDate: -1 }) // Get most recent price
       .lean();
     
     if (districtPrice) {
-      console.log(`Using district-specific price for ${materialCode} in ${district}: ₱${districtPrice.unitCost}`);
+      console.log(`Using district-specific price for ${materialCode} in ${district}${cmpdVersion ? ` (${cmpdVersion})` : ''}: ₱${districtPrice.unitCost}`);
       return districtPrice.unitCost;
+    }
+    
+    // If no exact CMPD version match, try without version filter
+    if (cmpdVersion) {
+      const fallbackPrice: any = await MaterialPrice.findOne({
+        materialCode: materialCode,
+        district: district,
+        isActive: true,
+        effectiveDate: effectiveDate 
+          ? { $lte: effectiveDate } 
+          : { $exists: true }
+      })
+        .sort({ effectiveDate: -1 })
+        .lean();
+      
+      if (fallbackPrice) {
+        console.log(`Using district-specific price for ${materialCode} in ${district} (no version match, using latest): ₱${fallbackPrice.unitCost}`);
+        return fallbackPrice.unitCost;
+      }
     }
   }
   
@@ -112,13 +139,16 @@ export async function POST(
     // Fetch project for hauling configuration and district
     let haulingCostPerCuM = 0;
     let projectDistrict: string | undefined = undefined;
+    let projectCmpdVersion: string | undefined = undefined;
     
     if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
       const project: any = await Project.findById(projectId).lean();
       projectDistrict = project?.district;
+      projectCmpdVersion = project?.cmpdVersion;
       console.log('Project fetched:', {
         name: project?.projectName,
         district: projectDistrict,
+        cmpdVersion: projectCmpdVersion,
         distanceFromOffice: project?.distanceFromOffice,
         haulingCostPerKm: project?.haulingCostPerKm,
         hasHaulingConfig: !!project?.haulingConfig
@@ -290,6 +320,7 @@ export async function POST(
     // Instantiate material entries (filter out empty entries)
     console.log(`Instantiating materials with hauling cost per cu.m.: ₱${haulingCostPerCuM.toFixed(2)}`);
     console.log(`Project district: ${projectDistrict || 'N/A'}`);
+    console.log(`Project CMPD version: ${projectCmpdVersion || 'N/A (using latest)'}`);
     
     const materialEntries = await Promise.all(
       template.materialTemplate
@@ -304,12 +335,13 @@ export async function POST(
               materialCode: material.materialCode 
             }).lean();
 
-            // Get price with district priority
+            // Get price with district priority and CMPD version
             const effectiveDate = validated.effectiveDate ? new Date(validated.effectiveDate) : new Date();
             basePrice = await getMaterialPrice(
               material.materialCode,
               projectDistrict,
-              effectiveDate
+              effectiveDate,
+              projectCmpdVersion
             );
           }
 

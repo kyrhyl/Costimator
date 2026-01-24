@@ -78,6 +78,7 @@ export interface IProject extends Document {
   projectName: string;
   projectLocation: string;
   district: string;
+  cmpdVersion?: string; // Selected CMPD version for pricing (e.g., "CMPD-2024-Q1")
   implementingOffice: string;
   appropriation: number;
   contractId?: string;
@@ -484,6 +485,10 @@ const ProjectSchema = new Schema<IProject>(
       type: String,
       required: true,
       default: 'Bukidnon 1st',
+    },
+    cmpdVersion: {
+      type: String,
+      default: '',
     },
     implementingOffice: {
       type: String,

@@ -48,10 +48,12 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
    const [filterType, setFilterType] = useState('all');
    const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
    const [costingEnabled, setCostingEnabled] = useState(false);
+   const [projectInfo, setProjectInfo] = useState<{ district?: string; cmpdVersion?: string } | null>(null);
 
   // Load latest CalcRun on mount
   useEffect(() => {
     loadLatestCalcRun();
+    fetchProjectInfo();
   }, [projectId]);
 
   const loadLatestCalcRun = async () => {
@@ -83,6 +85,23 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
       }
     } catch (err) {
       console.error('Failed to load latest calc run:', err);
+    }
+  };
+
+  const fetchProjectInfo = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}`);
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && result.data) {
+          setProjectInfo({
+            district: result.data.district,
+            cmpdVersion: result.data.cmpdVersion
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load project info:', err);
     }
   };
 
@@ -523,6 +542,27 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
               <p className="text-xs text-gray-500 mt-1">
                 Last generated: {new Date(lastCalculated).toLocaleString()}
               </p>
+            )}
+            {projectInfo && (projectInfo.district || projectInfo.cmpdVersion) && (
+              <div className="mt-2 flex items-center gap-3 text-xs">
+                {projectInfo.district && (
+                  <span className="inline-flex items-center px-2 py-1 rounded bg-blue-100 text-blue-800">
+                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    District: {projectInfo.district}
+                  </span>
+                )}
+                {projectInfo.cmpdVersion && (
+                  <span className="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-800">
+                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    CMPD: {projectInfo.cmpdVersion}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <div className="flex gap-3">

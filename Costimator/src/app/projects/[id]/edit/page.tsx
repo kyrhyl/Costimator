@@ -29,11 +29,14 @@ export default function EditProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [locations, setLocations] = useState<LaborRate[]>([]);
+  const [cmpdVersions, setCmpdVersions] = useState<string[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
 
   // Form fields
   const [projectName, setProjectName] = useState('');
   const [projectLocation, setProjectLocation] = useState('');
   const [district, setDistrict] = useState('Bukidnon 1st District');
+  const [cmpdVersion, setCmpdVersion] = useState('');
   const [implementingOffice, setImplementingOffice] = useState('');
   const [appropriation, setAppropriation] = useState('');
   const [contractId, setContractId] = useState('');
@@ -57,6 +60,22 @@ export default function EditProjectPage() {
     }
   }, []);
 
+  const fetchCmpdVersions = useCallback(async (districtValue: string) => {
+    setLoadingVersions(true);
+    try {
+      const response = await fetch(`/api/master/materials/prices/versions?district=${encodeURIComponent(districtValue)}`);
+      const result = await response.json();
+      if (result.success) {
+        setCmpdVersions(result.versions || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch CMPD versions:', error);
+      setCmpdVersions([]);
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, []);
+
   const fetchProject = useCallback(async () => {
     try {
       const response = await fetch(`/api/projects/${id}`);
@@ -67,6 +86,7 @@ export default function EditProjectPage() {
         setProjectName(project.projectName || '');
         setProjectLocation(project.projectLocation || '');
         setDistrict(project.district || 'Bukidnon 1st District');
+        setCmpdVersion(project.cmpdVersion || '');
         setImplementingOffice(project.implementingOffice || '');
         setAppropriation(project.appropriation?.toString() || '');
         setContractId(project.contractId || '');
@@ -83,6 +103,11 @@ export default function EditProjectPage() {
         if (project.endDate) {
           setEndDate(new Date(project.endDate).toISOString().split('T')[0]);
         }
+        
+        // Fetch CMPD versions for the project's district
+        if (project.district) {
+          fetchCmpdVersions(project.district);
+        }
       } else {
         setError(result.error || 'Failed to load project');
       }
@@ -91,7 +116,7 @@ export default function EditProjectPage() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, fetchCmpdVersions]);
 
   useEffect(() => {
     fetchLocations();
@@ -99,6 +124,13 @@ export default function EditProjectPage() {
       fetchProject();
     }
   }, [id, fetchProject, fetchLocations]);
+
+  // Reload CMPD versions when district changes manually
+  useEffect(() => {
+    if (district && !loading) {
+      fetchCmpdVersions(district);
+    }
+  }, [district, loading, fetchCmpdVersions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +141,7 @@ export default function EditProjectPage() {
       projectName,
       projectLocation,
       district,
+      cmpdVersion,
       implementingOffice,
       appropriation: appropriation ? parseFloat(appropriation) : undefined,
       contractId,
@@ -270,6 +303,46 @@ export default function EditProjectPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., Bukidnon 1st District"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CMPD Version
+                </label>
+                {loadingVersions ? (
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-500">
+                    Loading versions...
+                  </div>
+                ) : cmpdVersions.length === 0 ? (
+                  <div>
+                    <input
+                      type="text"
+                      value={cmpdVersion}
+                      onChange={(e) => setCmpdVersion(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., CMPD-2024-Q1"
+                    />
+                    <p className="text-xs text-orange-500 mt-1">
+                      No CMPD versions found for this district. You can enter manually or leave blank to use latest prices.
+                    </p>
+                  </div>
+                ) : (
+                  <select
+                    value={cmpdVersion}
+                    onChange={(e) => setCmpdVersion(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">-- Use Latest --</option>
+                    {cmpdVersions.map((version) => (
+                      <option key={version} value={version}>
+                        {version}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Select the CMPD (Construction Materials Price Data) version for material pricing
+                </p>
               </div>
 
               <div>
