@@ -3,6 +3,11 @@ import dbConnect from '@/lib/db/connect';
 import Project from '@/models/Project';
 import CalcRunModel from '@/models/CalcRun';
 import { v4 as uuidv4 } from 'uuid';
+import { calculateStructuralElements } from '@/lib/logic/calculateElements';
+import { calculateFinishingWorks } from '@/lib/logic/calculateFinishes';
+import { calculateRoofing } from '@/lib/logic/calculateRoofing';
+import { calculateScheduleItems } from '@/lib/logic/calculateScheduleItems';
+import type { TakeoffLine } from '@/types';
 
 // POST /api/projects/[id]/takeoff - Generate takeoff for a project
 export async function POST(
@@ -23,69 +28,161 @@ export async function POST(
 
     // Generate a new calc run
     const runId = uuidv4();
-    const takeoffLines: any[] = [];
-    const boqLines: any[] = [];
+    const allTakeoffLines: TakeoffLine[] = [];
     const errors: string[] = [];
 
-    // Basic validation
-    if (!project.grid || !project.grid.xLines || !project.grid.yLines) {
-      errors.push('Project grid is not defined');
-    }
-    if (!project.levels || project.levels.length === 0) {
-      errors.push('Project levels are not defined');
-    }
-    if (!project.elementTemplates || project.elementTemplates.length === 0) {
-      errors.push('No element templates defined');
-    }
-    if (!project.elementInstances || project.elementInstances.length === 0) {
-      errors.push('No element instances placed');
+    // Extract grid arrays (handle both new and legacy formats)
+    const gridX = project.grid?.xLines || project.gridX || [];
+    const gridY = project.grid?.yLines || project.gridY || [];
+
+    // Summary accumulators
+    let totalConcreteVolume = 0;
+    let totalRebarWeight = 0;
+    let totalFormworkArea = 0;
+    let totalFloorArea = 0;
+    let totalWallArea = 0;
+    let totalCeilingArea = 0;
+    let totalRoofArea = 0;
+
+    // ===================================
+    // 1. STRUCTURAL ELEMENTS CALCULATION
+    // ===================================
+    if (project.elementInstances && project.elementInstances.length > 0) {
+      try {
+        const elementsResult = calculateStructuralElements({
+          elementInstances: project.elementInstances,
+          elementTemplates: project.elementTemplates || [],
+          levels: project.levels || [],
+          gridX,
+          gridY,
+          settings: project.settings,
+        });
+
+        allTakeoffLines.push(...elementsResult.takeoffLines);
+        errors.push(...elementsResult.errors);
+
+        totalConcreteVolume += elementsResult.summary.totalConcreteVolume;
+        totalRebarWeight += elementsResult.summary.totalRebarWeight;
+        totalFormworkArea += elementsResult.summary.totalFormworkArea;
+
+        console.log(`✓ Structural elements calculated: ${elementsResult.takeoffLines.length} takeoff lines`);
+      } catch (err) {
+        const errorMsg = `Structural elements calculation failed: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
+      }
     }
 
-    let summary = {
-      totalConcrete: 0,
-      totalRebar: 0,
-      totalFormwork: 0,
-      takeoffLineCount: 0,
-      boqLineCount: 0,
+    // ===================================
+    // 2. FINISHING WORKS CALCULATION
+    // ===================================
+    if (project.spaces && project.spaces.length > 0) {
+      try {
+        const finishesResult = calculateFinishingWorks({
+          spaces: project.spaces,
+          openings: project.openings || [],
+          finishTypes: project.finishTypes || [],
+          assignments: project.spaceFinishAssignments || [],
+          wallSurfaces: project.wallSurfaces || [],
+          wallAssignments: project.wallSurfaceFinishAssignments || [],
+          levels: project.levels || [],
+          gridX,
+          gridY,
+        });
+
+        allTakeoffLines.push(...finishesResult.takeoffLines);
+        errors.push(...finishesResult.errors);
+
+        totalFloorArea += finishesResult.summary.totalFloorArea;
+        totalWallArea += finishesResult.summary.totalWallArea;
+        totalCeilingArea += finishesResult.summary.totalCeilingArea;
+
+        console.log(`✓ Finishes calculated: ${finishesResult.takeoffLines.length} takeoff lines`);
+      } catch (err) {
+        const errorMsg = `Finishes calculation failed: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
+      }
+    }
+
+    // ===================================
+    // 3. ROOFING CALCULATION
+    // ===================================
+    if (project.roofPlanes && project.roofPlanes.length > 0) {
+      try {
+        const roofingResult = await calculateRoofing(project as any);
+
+        allTakeoffLines.push(...roofingResult.takeoffLines);
+        errors.push(...roofingResult.errors);
+
+        totalRoofArea += roofingResult.summary.totalRoofArea_m2;
+
+        console.log(`✓ Roofing calculated: ${roofingResult.takeoffLines.length} takeoff lines`);
+      } catch (err) {
+        const errorMsg = `Roofing calculation failed: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
+      }
+    }
+
+    // ===================================
+    // 4. SCHEDULE ITEMS CALCULATION
+    // ===================================
+    if (project.scheduleItems && project.scheduleItems.length > 0) {
+      try {
+        const scheduleResult = await calculateScheduleItems(project as any);
+
+        allTakeoffLines.push(...scheduleResult.takeoffLines);
+        errors.push(...scheduleResult.errors);
+
+        console.log(`✓ Schedule items calculated: ${scheduleResult.takeoffLines.length} takeoff lines`);
+      } catch (err) {
+        const errorMsg = `Schedule items calculation failed: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(errorMsg);
+        errors.push(errorMsg);
+      }
+    }
+
+    // ===================================
+    // SUMMARY
+    // ===================================
+    const summary = {
+      totalConcreteVolume,
+      totalRebarWeight,
+      totalFormworkArea,
+      totalFloorArea,
+      totalWallArea,
+      totalCeilingArea,
+      totalRoofArea,
+      takeoffLineCount: allTakeoffLines.length,
+      elementCount: project.elementInstances?.length || 0,
+      spaceCount: project.spaces?.length || 0,
+      roofPlaneCount: project.roofPlanes?.length || 0,
+      scheduleItemCount: project.scheduleItems?.length || 0,
     };
-
-    // If no blocking errors, perform calculations
-    if (errors.length === 0) {
-      // TODO: Implement actual takeoff calculation logic
-      // This would involve:
-      // 1. Iterate through element instances
-      // 2. Calculate volumes, areas, quantities
-      // 3. Generate takeoff lines
-      // 4. Aggregate into BOQ lines
-      // 5. Calculate summary totals
-
-      // For now, create a placeholder
-      errors.push('Takeoff calculation logic not yet implemented');
-    }
 
     // Create calc run record
     const calcRun = new CalcRunModel({
       runId,
       projectId: id,
       timestamp: new Date(),
-      status: errors.length > 0 ? 'failed' : 'completed',
+      status: errors.length > 0 ? 'completed_with_errors' : 'completed',
       summary,
-      takeoffLines,
-      boqLines,
+      takeoffLines: allTakeoffLines,
+      boqLines: [], // BOQ generation is separate (via /api/projects/[id]/boq)
       errors,
     });
 
     await calcRun.save();
 
     return NextResponse.json({
-      success: errors.length === 0,
+      success: true,
       runId,
-      takeoffLines,
-      boqLines,
+      takeoffLines: allTakeoffLines,
       summary,
       errors,
       message: errors.length > 0 
-        ? 'Takeoff generation failed with errors' 
+        ? `Takeoff generated with ${errors.length} warning(s)` 
         : 'Takeoff generated successfully'
     });
   } catch (error: any) {
