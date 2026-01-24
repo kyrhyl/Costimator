@@ -97,17 +97,42 @@ export function calculateStructuralElements(
     return levels.find((l) => l.label === levelId) || null;
   };
 
-  // Helper: Calculate grid distance
-  const calculateGridDistance = (
-    gridRef: string[],
-    axis: 'x' | 'y'
-  ): number | null => {
-    if (gridRef.length < 2) return null;
-    const gridLines = axis === 'x' ? gridX : gridY;
-    const start = gridLines.find((g) => g.label === gridRef[0]);
-    const end = gridLines.find((g) => g.label === gridRef[1]);
-    if (!start || !end) return null;
-    return Math.abs(end.offset - start.offset);
+  // Helper: Get grid offset by label
+  const getGridOffset = (label: string, axis: 'x' | 'y'): number | null => {
+    const grid = axis === 'x' ? gridX : gridY;
+    const gridLine = grid.find((g) => g.label === label);
+    return gridLine ? gridLine.offset : null;
+  };
+
+  // Helper: Try to calculate beam length from grid references
+  // Grid ref format: ["A-C", "1"] means span from A to C on X-axis, at Y-grid 1
+  //                  ["A", "1-3"] means span from 1 to 3 on Y-axis, at X-grid A
+  const calculateBeamLength = (gridRef: string[] | undefined): number | null => {
+    if (!gridRef || gridRef.length < 2) return null;
+    
+    const [ref1, ref2] = gridRef;
+    let length = 0;
+    
+    // Check if ref1 contains a span (has hyphen)
+    if (ref1.includes('-')) {
+      // Span along X-axis (e.g., "A-C")
+      const [start, end] = ref1.split('-');
+      const x1 = getGridOffset(start, 'x');
+      const x2 = getGridOffset(end, 'x');
+      if (x1 !== null && x2 !== null) {
+        length = Math.abs(x2 - x1);
+      }
+    } else if (ref2.includes('-')) {
+      // Span along Y-axis (e.g., "1-3")
+      const [start, end] = ref2.split('-');
+      const y1 = getGridOffset(start, 'y');
+      const y2 = getGridOffset(end, 'y');
+      if (y1 !== null && y2 !== null) {
+        length = Math.abs(y2 - y1);
+      }
+    }
+    
+    return length > 0 ? length : null;
   };
 
   // Process each element instance
@@ -189,14 +214,28 @@ export function calculateStructuralElements(
     const width = (custom?.get('width') || props.get('width') || 0.3) as number;
     const height = (custom?.get('height') || props.get('height') || 0.5) as number;
 
-    // Calculate length from grid reference
+    // Calculate length from grid reference or custom/template properties
     let length = (custom?.get('length') || props.get('length')) as number | undefined;
+    
     if (!length && instance.placement.gridRef) {
-      const gridLength = calculateGridDistance(instance.placement.gridRef, 'x');
+      const gridLength = calculateBeamLength(instance.placement.gridRef);
       if (gridLength) length = gridLength;
     }
+    
     if (!length) {
-      errors.push(`Beam ${instance.id}: Cannot determine length`);
+      const gridRefInfo = instance.placement.gridRef 
+        ? `[${instance.placement.gridRef.join(', ')}]`
+        : 'none';
+      const availableGridX = gridX.map(g => g.label).join(', ');
+      const availableGridY = gridY.map(g => g.label).join(', ');
+      
+      errors.push(
+        `Beam ${instance.id} (Template: ${template.name}): Cannot determine length. ` +
+        `Grid ref: ${gridRefInfo}. ` +
+        `Available X-grid: [${availableGridX}]. ` +
+        `Available Y-grid: [${availableGridY}]. ` +
+        `Suggestion: Add 'length' property to template or provide valid grid references.`
+      );
       return;
     }
 
@@ -625,17 +664,37 @@ export function calculateStructuralElements(
 
     // Calculate area from grid reference or custom
     let area = (custom?.get('area') || props.get('area')) as number | undefined;
+    
     if (!area && instance.placement.gridRef && instance.placement.gridRef.length >= 2) {
-      // Assume grid reference defines a rectangular area
-      const xLength = calculateGridDistance([instance.placement.gridRef[0], instance.placement.gridRef[1]], 'x');
-      const yLength = calculateGridDistance([instance.placement.gridRef[0], instance.placement.gridRef[1]], 'y');
-      if (xLength && yLength) {
-        area = xLength * yLength;
+      // Slab grid reference format: ["A-C", "1-3"] - both should have spans
+      const [xRef, yRef] = instance.placement.gridRef;
+      
+      if (xRef.includes('-') && yRef.includes('-')) {
+        const [xStart, xEnd] = xRef.split('-');
+        const [yStart, yEnd] = yRef.split('-');
+        
+        const x1 = getGridOffset(xStart, 'x');
+        const x2 = getGridOffset(xEnd, 'x');
+        const y1 = getGridOffset(yStart, 'y');
+        const y2 = getGridOffset(yEnd, 'y');
+        
+        if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
+          const width = Math.abs(x2 - x1);
+          const height = Math.abs(y2 - y1);
+          area = width * height;
+        }
       }
     }
 
     if (!area) {
-      errors.push(`Slab ${instance.id}: Cannot determine area`);
+      const gridRefInfo = instance.placement.gridRef 
+        ? `[${instance.placement.gridRef.join(', ')}]`
+        : 'none';
+      errors.push(
+        `Slab ${instance.id} (Template: ${template.name}): Cannot determine area. ` +
+        `Grid ref: ${gridRefInfo}. ` +
+        `Expected format: ["A-C", "1-3"] for a slab spanning from A to C and 1 to 3.`
+      );
       return;
     }
 
