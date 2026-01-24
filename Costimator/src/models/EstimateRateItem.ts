@@ -334,27 +334,27 @@ EstimateRateItemSchema.statics.getCostSummary = async function(
     };
   }
   
-  const totalDirectCost = items.reduce((sum, item) => {
+  const totalDirectCost = items.reduce((sum: number, item: any) => {
     return sum + (item.costBreakdown.directCost * item.quantity);
   }, 0);
   
-  const totalOCM = items.reduce((sum, item) => {
+  const totalOCM = items.reduce((sum: number, item: any) => {
     return sum + item.costBreakdown.ocmCost;
   }, 0);
   
-  const totalCP = items.reduce((sum, item) => {
+  const totalCP = items.reduce((sum: number, item: any) => {
     return sum + item.costBreakdown.cpCost;
   }, 0);
   
-  const subtotalWithMarkup = items.reduce((sum, item) => {
+  const subtotalWithMarkup = items.reduce((sum: number, item: any) => {
     return sum + item.costBreakdown.subtotalWithMarkup;
   }, 0);
   
-  const totalVAT = items.reduce((sum, item) => {
+  const totalVAT = items.reduce((sum: number, item: any) => {
     return sum + item.costBreakdown.vatCost;
   }, 0);
   
-  const grandTotal = items.reduce((sum, item) => {
+  const grandTotal = items.reduce((sum: number, item: any) => {
     return sum + item.costBreakdown.totalAmount;
   }, 0);
   
@@ -391,9 +391,9 @@ EstimateRateItemSchema.methods.calculateCosts = function(
   vatPercentage: number
 ): void {
   // Calculate component totals
-  const laborCost = this.laborItems.reduce((sum, item) => sum + item.amount, 0);
-  const equipmentCost = this.equipmentItems.reduce((sum, item) => sum + item.amount, 0);
-  const materialCost = this.materialItems.reduce((sum, item) => sum + item.amount, 0);
+  const laborCost = this.laborItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+  const equipmentCost = this.equipmentItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+  const materialCost = this.materialItems.reduce((sum: number, item: any) => sum + item.amount, 0);
   
   // Direct cost (per unit of work)
   const directCost = laborCost + equipmentCost + materialCost;

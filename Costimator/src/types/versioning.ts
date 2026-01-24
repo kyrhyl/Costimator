@@ -8,13 +8,7 @@
 // TakeoffVersion types
 export type { 
   ITakeoffVersion,
-  IChangeSummary,
-  IBOQLine,
-  IGridData,
-  ILevelData,
-  IElementData,
-  TakeoffVersionType,
-  TakeoffVersionStatus
+  IChangeSummary
 } from '@/models/TakeoffVersion';
 
 // CostEstimate types

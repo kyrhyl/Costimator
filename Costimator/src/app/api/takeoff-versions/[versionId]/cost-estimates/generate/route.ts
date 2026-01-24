@@ -148,7 +148,7 @@ export async function POST(
         );
         
         // Process labor items
-        const laborItems = (dupaTemplate.laborItems || []).map(item => ({
+        const laborItems = (dupaTemplate.laborItems || []).map((item: any) => ({
           designation: item.designation,
           noOfPersons: item.noOfPersons || 1,
           noOfHours: item.noOfHours || 0,
@@ -157,7 +157,7 @@ export async function POST(
         }));
         
         // Process equipment items
-        const equipmentItems = (dupaTemplate.equipmentItems || []).map(item => ({
+        const equipmentItems = (dupaTemplate.equipmentItems || []).map((item: any) => ({
           description: item.description,
           noOfUnits: item.noOfUnits || 1,
           noOfHours: item.noOfHours || 0,
@@ -167,7 +167,7 @@ export async function POST(
         
         // Process material items with district-specific pricing
         const materialItems = await Promise.all(
-          (dupaTemplate.materialItems || []).map(async (item) => {
+          (dupaTemplate.materialItems || []).map(async (item: any) => {
             // Try to find material price with district + CMPD version
             let materialPrice = await MaterialPrice.findOne({
               materialCode: item.materialCode,

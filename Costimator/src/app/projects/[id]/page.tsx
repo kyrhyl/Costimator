@@ -3,6 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import VersionStatusBadge from '@/components/versioning/VersionStatusBadge';
 
 interface Project {
   _id: string;
@@ -46,9 +47,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
   const [loadingEstimates, setLoadingEstimates] = useState(false);
   const [generatingEstimate, setGeneratingEstimate] = useState(false);
+  const [versionSummary, setVersionSummary] = useState<{
+    activeTakeoffVersion?: { versionNumber: number; versionLabel: string; status: string; createdAt: string; boqLineCount: number };
+    activeCostEstimate?: { estimateNumber: string; grandTotal: number; cmpdVersion: string; status: string; createdAt: string };
+    totalVersions: number;
+    totalEstimates: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchProject();
+    fetchVersionSummary();
   }, [id]);
 
   useEffect(() => {
@@ -99,6 +107,51 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       console.error('Failed to fetch estimates:', error);
     } finally {
       setLoadingEstimates(false);
+    }
+  };
+
+  const fetchVersionSummary = async () => {
+    try {
+      // Fetch takeoff versions
+      const versionsResponse = await fetch(`/api/projects/${id}/takeoff-versions`);
+      const estimatesResponse = await fetch(`/api/projects/${id}/cost-estimates`);
+      
+      if (versionsResponse.ok && estimatesResponse.ok) {
+        const versionsData = await versionsResponse.json();
+        const estimatesData = await estimatesResponse.json();
+        
+        if (versionsData.success && estimatesData.success) {
+          const versions = versionsData.data || [];
+          const estimates = estimatesData.data || [];
+          
+          // Find active version (most recent approved or latest)
+          const activeVersion = versions.find((v: any) => v.status === 'approved') || versions[0];
+          
+          // Find active estimate (most recent approved or latest)
+          const activeEstimate = estimates.find((e: any) => e.status === 'approved') || estimates[0];
+          
+          setVersionSummary({
+            activeTakeoffVersion: activeVersion ? {
+              versionNumber: activeVersion.versionNumber,
+              versionLabel: activeVersion.versionLabel,
+              status: activeVersion.status,
+              createdAt: activeVersion.createdAt,
+              boqLineCount: activeVersion.boqLines?.length || 0
+            } : undefined,
+            activeCostEstimate: activeEstimate ? {
+              estimateNumber: activeEstimate.estimateNumber,
+              grandTotal: activeEstimate.costSummary?.grandTotal || 0,
+              cmpdVersion: activeEstimate.cmpdVersion,
+              status: activeEstimate.status,
+              createdAt: activeEstimate.createdAt
+            } : undefined,
+            totalVersions: versions.length,
+            totalEstimates: estimates.length
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch version summary:', error);
     }
   };
 
@@ -417,6 +470,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
+            href={`/takeoff/${id}`}
+            className="block bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
+          >
+            <h3 className="font-semibold text-blue-600 mb-2">📐 Quantity Takeoff</h3>
+            <p className="text-sm text-gray-600">
+              Access the takeoff workspace to model elements and generate quantities
+            </p>
+          </Link>
+          <Link
             href={`/projects/${id}/boq`}
             className="block bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
           >
@@ -431,14 +493,93 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Generate project reports (Coming soon)
             </p>
           </div>
-          <div className="block bg-white p-4 rounded-lg shadow opacity-50">
-            <h3 className="font-semibold text-gray-400 mb-2">📈 Progress Tracking</h3>
-            <p className="text-sm text-gray-400">
-              Track project progress (Coming soon)
-            </p>
-          </div>
         </div>
       </div>
+
+      {/* Version Summary */}
+      {versionSummary && (versionSummary.totalVersions > 0 || versionSummary.totalEstimates > 0) && (
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Version Management Summary</h2>
+            <Link
+              href={`/takeoff/${id}#versions`}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Manage Versions →
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Active Takeoff Version */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Active Takeoff Version
+              </h3>
+              {versionSummary.activeTakeoffVersion ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Version {versionSummary.activeTakeoffVersion.versionNumber}</span>
+                    <VersionStatusBadge status={versionSummary.activeTakeoffVersion.status as any} />
+                  </div>
+                  <div className="text-base font-semibold text-gray-900">
+                    {versionSummary.activeTakeoffVersion.versionLabel}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {versionSummary.activeTakeoffVersion.boqLineCount} BOQ items
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Created: {new Date(versionSummary.activeTakeoffVersion.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="text-xs text-blue-600 mt-2">
+                    Total versions: {versionSummary.totalVersions}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">
+                  No takeoff versions created yet
+                </div>
+              )}
+            </div>
+
+            {/* Active Cost Estimate */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Active Cost Estimate
+              </h3>
+              {versionSummary.activeCostEstimate ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">{versionSummary.activeCostEstimate.estimateNumber}</span>
+                    <VersionStatusBadge status={versionSummary.activeCostEstimate.status as any} />
+                  </div>
+                  <div className="text-lg font-bold text-green-600">
+                    ₱{versionSummary.activeCostEstimate.grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    CMPD: {versionSummary.activeCostEstimate.cmpdVersion}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Created: {new Date(versionSummary.activeCostEstimate.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="text-xs text-blue-600 mt-2">
+                    Total estimates: {versionSummary.totalEstimates}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">
+                  No cost estimates generated yet
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
           {/* Metadata */}
           <div className="mt-6 text-sm text-gray-500">
