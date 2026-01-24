@@ -23,6 +23,7 @@ export default function MaterialsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [formData, setFormData] = useState({
     materialCode: '',
@@ -32,6 +33,23 @@ export default function MaterialsPage() {
     category: '',
     includeHauling: true,
     isActive: true,
+  });
+  const [importData, setImportData] = useState({
+    file: null as File | null,
+    district: '',
+    cmpd_version: '',
+    location: '',
+    effectiveDate: new Date().toISOString().split('T')[0],
+    deactivateOldPrices: false,
+    validateMaterialCodes: true,
+  });
+  const [importProgress, setImportProgress] = useState<{
+    status: 'idle' | 'uploading' | 'success' | 'error';
+    message: string;
+    summary?: any;
+  }>({
+    status: 'idle',
+    message: '',
   });
 
   useEffect(() => {
@@ -176,6 +194,75 @@ export default function MaterialsPage() {
     });
   };
 
+  const handleImportCMPD = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!importData.file) {
+      alert('Please select a file to import');
+      return;
+    }
+    
+    if (!importData.district || !importData.cmpd_version || !importData.location) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
+    try {
+      setImportProgress({ status: 'uploading', message: 'Uploading and processing file...' });
+      
+      const formData = new FormData();
+      formData.append('file', importData.file);
+      formData.append('district', importData.district);
+      formData.append('cmpd_version', importData.cmpd_version);
+      formData.append('location', importData.location);
+      formData.append('effectiveDate', importData.effectiveDate);
+      formData.append('deactivateOldPrices', String(importData.deactivateOldPrices));
+      formData.append('validateMaterialCodes', String(importData.validateMaterialCodes));
+      
+      const response = await fetch('/api/master/materials/prices/bulk-import', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setImportProgress({
+          status: 'success',
+          message: result.message,
+          summary: result.summary,
+        });
+      } else {
+        setImportProgress({
+          status: 'error',
+          message: result.error || 'Import failed',
+          summary: result,
+        });
+      }
+    } catch (err: any) {
+      setImportProgress({
+        status: 'error',
+        message: err.message || 'Failed to import CMPD data',
+      });
+    }
+  };
+
+  const resetImportModal = () => {
+    setImportData({
+      file: null,
+      district: '',
+      cmpd_version: '',
+      location: '',
+      effectiveDate: new Date().toISOString().split('T')[0],
+      deactivateOldPrices: false,
+      validateMaterialCodes: true,
+    });
+    setImportProgress({
+      status: 'idle',
+      message: '',
+    });
+  };
+
   const categories = [...new Set(materials.map(m => m.category).filter(Boolean))];
 
   return (
@@ -232,16 +319,25 @@ export default function MaterialsPage() {
             </select>
           </div>
           
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
             <button
               onClick={() => {
                 setEditingMaterial(null);
                 resetForm();
                 setShowForm(true);
               }}
-              className="w-full bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              className="flex-1 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
             >
               + Add New Material
+            </button>
+            <button
+              onClick={() => {
+                resetImportModal();
+                setShowImportModal(true);
+              }}
+              className="flex-1 bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors"
+            >
+              Import CMPD
             </button>
           </div>
         </div>
@@ -377,6 +473,226 @@ export default function MaterialsPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import CMPD Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-2">Import CMPD (Construction Materials Price Data)</h2>
+              <p className="text-sm text-gray-600 mb-6">
+                Upload CSV or Excel file to bulk import district-specific material prices
+              </p>
+              
+              {importProgress.status === 'idle' || importProgress.status === 'uploading' ? (
+                <form onSubmit={handleImportCMPD}>
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+                    <h3 className="font-semibold text-blue-900 mb-2">Expected File Format:</h3>
+                    <div className="text-sm text-blue-800 font-mono">
+                      <div>Material Code | Description | Unit | Unit Cost | Brand | Specification | Supplier</div>
+                      <div className="mt-1 text-xs text-blue-600">
+                        Alternative column names accepted: materialCode/code, unitCost/price/cost, specification/specs
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Upload File (CSV, XLS, XLSX) *
+                    </label>
+                    <input
+                      type="file"
+                      accept=".csv,.xls,.xlsx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setImportData({ ...importData, file });
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        DPWH District *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={importData.district}
+                        onChange={(e) => setImportData({ ...importData, district: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                        placeholder="e.g., DPWH-NCR-1st, DPWH-CAR"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        CMPD Version *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={importData.cmpd_version}
+                        onChange={(e) => setImportData({ ...importData, cmpd_version: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                        placeholder="e.g., CMPD-2024-Q1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Location *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={importData.location}
+                        onChange={(e) => setImportData({ ...importData, location: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                        placeholder="e.g., Metro Manila, Baguio City"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Effective Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={importData.effectiveDate}
+                        onChange={(e) => setImportData({ ...importData, effectiveDate: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-6 space-y-3">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={importData.deactivateOldPrices}
+                        onChange={(e) => setImportData({ ...importData, deactivateOldPrices: e.target.checked })}
+                        className="mr-2"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Deactivate old prices for this district
+                      </span>
+                    </label>
+                    
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={importData.validateMaterialCodes}
+                        onChange={(e) => setImportData({ ...importData, validateMaterialCodes: e.target.checked })}
+                        className="mr-2"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Validate material codes against master data
+                      </span>
+                    </label>
+                  </div>
+
+                  {importProgress.status === 'uploading' && (
+                    <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="text-blue-800">{importProgress.message}</div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowImportModal(false);
+                        resetImportModal();
+                      }}
+                      disabled={importProgress.status === 'uploading'}
+                      className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={importProgress.status === 'uploading'}
+                      className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {importProgress.status === 'uploading' ? 'Importing...' : 'Import'}
+                    </button>
+                  </div>
+                </form>
+              ) : importProgress.status === 'success' ? (
+                <div>
+                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+                    <div className="text-green-800 font-semibold mb-2">{importProgress.message}</div>
+                    {importProgress.summary && (
+                      <div className="text-sm text-green-700 space-y-1">
+                        <div>Total Rows: {importProgress.summary.totalRows}</div>
+                        <div>Valid Rows: {importProgress.summary.validRows}</div>
+                        <div>Invalid Rows: {importProgress.summary.invalidRows}</div>
+                        <div>Successfully Imported: {importProgress.summary.imported}</div>
+                        {importProgress.summary.duplicates > 0 && (
+                          <div>Duplicates Skipped: {importProgress.summary.duplicates}</div>
+                        )}
+                        <div>District: {importProgress.summary.district}</div>
+                        <div>CMPD Version: {importProgress.summary.cmpd_version}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        setShowImportModal(false);
+                        resetImportModal();
+                      }}
+                      className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+                    <div className="text-red-800 font-semibold mb-2">Import Failed</div>
+                    <div className="text-sm text-red-700">{importProgress.message}</div>
+                    {importProgress.summary?.invalidCodes && (
+                      <div className="mt-2 text-sm text-red-700">
+                        <div className="font-semibold">Invalid Material Codes:</div>
+                        <div className="max-h-32 overflow-y-auto">
+                          {importProgress.summary.invalidCodes.join(', ')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => {
+                        setImportProgress({ status: 'idle', message: '' });
+                      }}
+                      className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    >
+                      Try Again
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowImportModal(false);
+                        resetImportModal();
+                      }}
+                      className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

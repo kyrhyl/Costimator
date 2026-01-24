@@ -14,6 +14,7 @@ import DUPATemplate from '@/models/DUPATemplate';
 import LaborRate from '@/models/LaborRate';
 import Equipment from '@/models/Equipment';
 import Material from '@/models/Material';
+import MaterialPrice from '@/models/MaterialPrice';
 import Project from '@/models/Project';
 import mongoose from 'mongoose';
 import { z } from 'zod';
@@ -27,6 +28,50 @@ const InstantiateRequestSchema = z.object({
   projectOcmPercentage: z.number().optional(), // Override with project-level OCM %
   projectCpPercentage: z.number().optional(), // Override with project-level CP %
 });
+
+/**
+ * Get material price with district-based priority
+ * Priority:
+ * 1. District-specific active price
+ * 2. Material base price
+ */
+async function getMaterialPrice(
+  materialCode: string,
+  district?: string,
+  effectiveDate?: Date
+): Promise<number> {
+  // Priority 1: Try district-specific price
+  if (district) {
+    const districtPrice: any = await MaterialPrice.findOne({
+      materialCode: materialCode,
+      district: district,
+      isActive: true,
+      effectiveDate: effectiveDate 
+        ? { $lte: effectiveDate } 
+        : { $exists: true }
+    })
+      .sort({ effectiveDate: -1 }) // Get most recent price
+      .lean();
+    
+    if (districtPrice) {
+      console.log(`Using district-specific price for ${materialCode} in ${district}: ₱${districtPrice.unitCost}`);
+      return districtPrice.unitCost;
+    }
+  }
+  
+  // Priority 2: Fallback to Material base price
+  const material: any = await Material.findOne({ 
+    materialCode: materialCode 
+  }).lean();
+  
+  if (material) {
+    console.log(`Using base price for ${materialCode}: ₱${material.basePrice}`);
+    return material.basePrice || 0;
+  }
+  
+  console.warn(`No price found for material ${materialCode}`);
+  return 0;
+}
 
 export async function POST(
   request: Request,
@@ -64,12 +109,16 @@ export async function POST(
     
     console.log(`Instantiating template with location: "${location}", projectId: ${projectId}, OCM: ${projectOcmPercentage}%, CP: ${projectCpPercentage}%`);
 
-    // Fetch project for hauling configuration
+    // Fetch project for hauling configuration and district
     let haulingCostPerCuM = 0;
+    let projectDistrict: string | undefined = undefined;
+    
     if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
       const project: any = await Project.findById(projectId).lean();
+      projectDistrict = project?.district;
       console.log('Project fetched:', {
         name: project?.projectName,
+        district: projectDistrict,
         distanceFromOffice: project?.distanceFromOffice,
         haulingCostPerKm: project?.haulingCostPerKm,
         hasHaulingConfig: !!project?.haulingConfig
@@ -240,40 +289,44 @@ export async function POST(
 
     // Instantiate material entries (filter out empty entries)
     console.log(`Instantiating materials with hauling cost per cu.m.: ₱${haulingCostPerCuM.toFixed(2)}`);
+    console.log(`Project district: ${projectDistrict || 'N/A'}`);
+    
     const materialEntries = await Promise.all(
       template.materialTemplate
         .filter((material: any) => material.materialCode && material.description) // Only process valid materials
         .map(async (material: any) => {
-          let unitCost = 0;
+          let basePrice = 0;
           let materialDoc: any = null;
 
           if (material.materialCode) {
-            // Fetch the material to get base price and check if hauling should be included
+            // Fetch the material to check if hauling should be included
             materialDoc = await Material.findOne({ 
               materialCode: material.materialCode 
             }).lean();
 
-            if (materialDoc) {
-              // Use base price from Material model (not location-specific)
-              unitCost = materialDoc.basePrice || 0;
-              
-              // Only add hauling cost if the material has includeHauling flag set to true
-              const includeHauling = materialDoc.includeHauling !== false; // Default to true if not set
-              if (includeHauling) {
-                unitCost += haulingCostPerCuM;
-                console.log(`Material ${material.materialCode}: Base price ₱${materialDoc.basePrice.toFixed(2)}, Hauling ₱${haulingCostPerCuM.toFixed(2)}, Total ₱${unitCost.toFixed(2)}`);
-              } else {
-                console.log(`Material ${material.materialCode}: Base price ₱${materialDoc.basePrice.toFixed(2)}, Hauling EXCLUDED (material setting), Total ₱${unitCost.toFixed(2)}`);
-              }
-            } else {
-              console.log(`Material ${material.materialCode}: Material not found in database`);
-            }
+            // Get price with district priority
+            const effectiveDate = validated.effectiveDate ? new Date(validated.effectiveDate) : new Date();
+            basePrice = await getMaterialPrice(
+              material.materialCode,
+              projectDistrict,
+              effectiveDate
+            );
+          }
+
+          // Calculate unit cost with hauling if applicable
+          let unitCost = basePrice;
+          const includeHauling = materialDoc?.includeHauling !== false; // Default to true if not set
+          
+          if (includeHauling && haulingCostPerCuM > 0) {
+            unitCost += haulingCostPerCuM;
+            console.log(`Material ${material.materialCode}: Base price ₱${basePrice.toFixed(2)}, Hauling ₱${haulingCostPerCuM.toFixed(2)}, Total ₱${unitCost.toFixed(2)}`);
+          } else {
+            console.log(`Material ${material.materialCode}: Base price ₱${basePrice.toFixed(2)}, Hauling EXCLUDED, Total ₱${unitCost.toFixed(2)}`);
           }
 
           const quantity = Number(material.quantity) || 0;
           const amount = quantity * unitCost;
-          const haulingWasAdded = materialDoc?.includeHauling !== false && haulingCostPerCuM > 0;
-          const basePrice = materialDoc?.basePrice || 0;
+          const haulingWasAdded = includeHauling && haulingCostPerCuM > 0;
           const haulingCostApplied = haulingWasAdded ? haulingCostPerCuM : 0;
           
           const result = {

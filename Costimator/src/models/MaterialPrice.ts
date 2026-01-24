@@ -5,11 +5,15 @@ export interface IMaterialPrice extends Document {
   description: string;
   unit: string;
   location: string;
+  district?: string; // DPWH district (e.g., "DPWH-NCR-1st", "DPWH-CAR")
   unitCost: number;
   brand?: string;
   specification?: string;
   supplier?: string;
   effectiveDate: Date;
+  cmpd_version?: string; // CMPD version identifier (e.g., "CMPD-2024-Q1")
+  isActive?: boolean; // true = current price, false = historical
+  importBatch?: string; // Import batch identifier for tracking
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +36,10 @@ const MaterialPriceSchema = new Schema<IMaterialPrice>(
       type: String,
       required: true
     },
+    district: {
+      type: String,
+      default: ''
+    },
     unitCost: {
       type: Number,
       required: true,
@@ -52,6 +60,18 @@ const MaterialPriceSchema = new Schema<IMaterialPrice>(
     effectiveDate: {
       type: Date,
       default: Date.now
+    },
+    cmpd_version: {
+      type: String,
+      default: ''
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    importBatch: {
+      type: String,
+      default: ''
     }
   },
   {
@@ -63,5 +83,7 @@ const MaterialPriceSchema = new Schema<IMaterialPrice>(
 MaterialPriceSchema.index({ materialCode: 1, location: 1 }, { unique: true });
 MaterialPriceSchema.index({ description: 1 });
 MaterialPriceSchema.index({ location: 1 });
+MaterialPriceSchema.index({ district: 1, effectiveDate: -1 }); // For district-based price lookup
+MaterialPriceSchema.index({ isActive: 1 }); // For filtering active prices
 
 export default mongoose.models.MaterialPrice || mongoose.model<IMaterialPrice>('MaterialPrice', MaterialPriceSchema);
