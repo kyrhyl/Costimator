@@ -35,7 +35,7 @@ import {
   getRebarGrade,
 } from '@/lib/math/rebar';
 import type { RebarOutput } from '@/types';
-import { v4 as uuidv4 } from 'uuid';
+// Note: uuidv4 removed - using predictable IDs instead
 
 export interface ElementsCalculationInput {
   elementInstances: IElementInstance[];
@@ -97,6 +97,19 @@ export function calculateStructuralElements(
     return levels.find((l) => l.label === levelId) || null;
   };
 
+  // Helper: Get next level above
+  const getNextLevel = (currentLabel: string): ILevel | null => {
+    const currentLevel = getLevel(currentLabel);
+    if (!currentLevel) return null;
+    
+    const sortedLevels = [...levels].sort((a, b) => a.elevation - b.elevation);
+    const currentIndex = sortedLevels.findIndex((l) => l.label === currentLabel);
+    
+    return currentIndex >= 0 && currentIndex < sortedLevels.length - 1
+      ? sortedLevels[currentIndex + 1]
+      : null;
+  };
+
   // Helper: Get grid offset by label
   const getGridOffset = (label: string, axis: 'x' | 'y'): number | null => {
     const grid = axis === 'x' ? gridX : gridY;
@@ -134,6 +147,20 @@ export function calculateStructuralElements(
     
     return length > 0 ? length : null;
   };
+
+  // Helper: Safely get property value from template properties (which might be a Map or plain object)
+  const getProp = (props: IElementTemplate['properties'], key: string, defaultValue: number): number => {
+    if (typeof props.get === 'function') {
+      return (props.get(key) as number) || defaultValue;
+    }
+    return (props as any)[key] || defaultValue;
+  };
+
+  // Helper: Round quantity to specified decimal places
+  function roundQuantity(value: number, decimals: number): number {
+    const multiplier = Math.pow(10, decimals);
+    return Math.round(value * multiplier) / multiplier;
+  }
 
   // Process each element instance
   for (const instance of elementInstances) {
@@ -210,13 +237,25 @@ export function calculateStructuralElements(
     const props = template.properties;
     const custom = instance.placement.customGeometry;
 
-    // Get dimensions
-    const width = (custom?.get('width') || props.get('width') || 0.3) as number;
-    const height = (custom?.get('height') || props.get('height') || 0.5) as number;
+    // Get dimensions - Use helper for safe property access
+    const width = getProp(props, 'width', 0.3);
+    const height = getProp(props, 'height', 0.5);
 
     // Calculate length from grid reference or custom/template properties
-    let length = (custom?.get('length') || props.get('length')) as number | undefined;
+    let length: number | undefined;
     
+    // Try custom geometry first
+    if (custom?.get) {
+      length = custom.get('length') as number | undefined;
+    }
+    
+    // Try template properties if not in custom
+    if (!length) {
+      const propLength = getProp(props, 'length', 0);
+      if (propLength > 0) length = propLength;
+    }
+    
+    // Calculate from grid reference if still undefined
     if (!length && instance.placement.gridRef) {
       const gridLength = calculateBeamLength(instance.placement.gridRef);
       if (gridLength) length = gridLength;
@@ -265,7 +304,7 @@ export function calculateStructuralElements(
       totalConcreteVolume += concreteResult.volumeWithWaste;
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_concrete`,
         sourceElementId: instance.id,
         trade: 'Concrete' as Trade,
         resourceKey: template.dpwhItemNumber || 'concrete-class-a',
@@ -286,26 +325,25 @@ export function calculateStructuralElements(
       );
     }
 
-    // 2. FORMWORK CALCULATION
+    // 2. FORMWORK CALCULATION - NO WASTE applied (matches BuildingEstimate)
     try {
       const formworkResult = calculateBeamFormwork(width, height, length);
-      const formworkAreaWithWaste = formworkResult.area * (1 + formworkWaste);
 
-      totalFormworkArea += formworkAreaWithWaste;
+      totalFormworkArea += formworkResult.area;
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_formwork`,
         sourceElementId: instance.id,
         trade: 'Formwork' as Trade,
         resourceKey: 'formwork-beam',
         quantity: roundQuantity(
-          formworkAreaWithWaste,
+          formworkResult.area,
           roundingSettings.formwork || 2
         ),
         unit: 'm²',
-        formulaText: `${formworkResult.formulaText} × (1 + ${(formworkWaste * 100).toFixed(0)}% waste) = ${formworkAreaWithWaste.toFixed(2)} m²`,
-        inputsSnapshot: { ...formworkResult.inputs, waste: formworkWaste },
-        assumptions: [`Waste: ${(formworkWaste * 100).toFixed(0)}%`],
+        formulaText: formworkResult.formulaText,
+        inputsSnapshot: formworkResult.inputs,
+        assumptions: ['Contact area: bottom + 2 sides'],
         tags,
         calculatedAt: new Date(),
       });
@@ -336,6 +374,7 @@ export function calculateStructuralElements(
     roundingSettings: Record<string, number>
   ) {
     const rebarConfig = template.rebarConfig!;
+    const props = template.properties;
 
     // Main bars: (barDiameter, barCount, beamLength, waste)
     if (rebarConfig.mainBars?.diameter && rebarConfig.mainBars?.count) {
@@ -352,7 +391,7 @@ export function calculateStructuralElements(
       const dpwhItem = rebarConfig.dpwhRebarItem || getDPWHRebarItem(rebarConfig.mainBars.diameter);
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_rebar_main`,
         sourceElementId: instance.id,
         trade: 'Rebar' as Trade,
         resourceKey: `rebar-${rebarConfig.mainBars.diameter}mm-grade${grade}-main`,
@@ -375,9 +414,8 @@ export function calculateStructuralElements(
 
     // Stirrups: (stirrupDiameter, stirrupSpacing, beamLength, beamWidth, beamHeight, waste)
     if (rebarConfig.stirrups?.diameter && rebarConfig.stirrups?.spacing) {
-      const props = template.properties;
-      const width = props.get('width') as number || 0.3;
-      const height = props.get('height') as number || 0.5;
+      const width = getProp(props, 'width', 0.3);
+      const height = getProp(props, 'height', 0.5);
 
       const stirrupsResult = calculateBeamStirrupsWeight(
         rebarConfig.stirrups.diameter,
@@ -394,7 +432,7 @@ export function calculateStructuralElements(
       const dpwhItem = getDPWHRebarItem(rebarConfig.stirrups.diameter);
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_rebar_stirrups`,
         sourceElementId: instance.id,
         trade: 'Rebar' as Trade,
         resourceKey: `rebar-${rebarConfig.stirrups.diameter}mm-grade${grade}-stirrups`,
@@ -432,17 +470,40 @@ export function calculateStructuralElements(
     const shapeValue = props.get('shape');
     const shape = (typeof shapeValue === 'string' ? shapeValue : 'rectangular') as 'rectangular' | 'circular';
 
-    // Calculate height (distance between levels)
+    // Calculate height (distance between levels) - Match BuildingEstimate logic
     let height: number;
+    let endLevel: ILevel | null;
+    
     if (instance.placement.endLevelId) {
-      const endLevel = getLevel(instance.placement.endLevelId);
+      // Use specified end level
+      endLevel = getLevel(instance.placement.endLevelId);
       if (!endLevel) {
-        errors.push(`Column ${instance.id}: End level not found`);
+        errors.push(`Column ${instance.id}: End level '${instance.placement.endLevelId}' not found`);
         return;
       }
-      height = Math.abs(endLevel.elevation - level.elevation);
+      
+      // Validate end level is above start level
+      if (endLevel.elevation <= level.elevation) {
+        errors.push(`Column ${instance.id}: end level '${endLevel.label}' (${endLevel.elevation}m) must be above start level '${level.label}' (${level.elevation}m)`);
+        return;
+      }
+      
+      height = endLevel.elevation - level.elevation;
     } else {
-      height = (custom?.get('height') || props.get('height') || 3.0) as number;
+      // Auto-detect next level above
+      endLevel = getNextLevel(instance.placement.levelId);
+      if (!endLevel) {
+        // Skip columns on top level with a warning (not an error)
+        errors.push(`Column ${instance.id} at level '${instance.placement.levelId}' skipped - no level above (top floor column)`);
+        return;
+      }
+      
+      height = endLevel.elevation - level.elevation;
+    }
+    
+    if (height <= 0) {
+      errors.push(`Column ${instance.id}: Invalid height (${height}m)`);
+      return;
     }
 
     const wasteSettings = settings?.waste || {};
@@ -464,7 +525,7 @@ export function calculateStructuralElements(
       let concreteResult: ConcreteOutput;
 
       if (shape === 'circular') {
-        const diameter = (custom?.get('diameter') || props.get('diameter') || 0.4) as number;
+        const diameter = getProp(props, 'diameter', 0.4);
         concreteResult = calculateColumnConcrete({
           shape: 'circular',
           diameter,
@@ -472,8 +533,8 @@ export function calculateStructuralElements(
           waste: concreteWaste,
         });
       } else {
-        const width = (custom?.get('width') || props.get('width') || 0.3) as number;
-        const depth = (custom?.get('depth') || props.get('depth') || 0.3) as number;
+        const width = getProp(props, 'width', 0.3);
+        const depth = getProp(props, 'depth', 0.3);
         concreteResult = calculateColumnConcrete({
           shape: 'rectangular',
           width,
@@ -486,7 +547,7 @@ export function calculateStructuralElements(
       totalConcreteVolume += concreteResult.volumeWithWaste;
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_concrete`,
         sourceElementId: instance.id,
         trade: 'Concrete' as Trade,
         resourceKey: template.dpwhItemNumber || 'concrete-class-a',
@@ -497,7 +558,10 @@ export function calculateStructuralElements(
         unit: 'm³',
         formulaText: concreteResult.formulaText,
         inputsSnapshot: concreteResult.inputs,
-        assumptions: [`Waste: ${(concreteWaste * 100).toFixed(0)}%`],
+        assumptions: [
+          `Waste: ${(concreteWaste * 100).toFixed(0)}%`,
+          `Height: ${level.label} to ${endLevel.label} (${height.toFixed(2)}m)`,
+        ],
         tags,
         calculatedAt: new Date(),
       });
@@ -507,35 +571,35 @@ export function calculateStructuralElements(
       );
     }
 
-    // 2. FORMWORK CALCULATION
+    // 2. FORMWORK CALCULATION - NO WASTE applied (matches BuildingEstimate)
     try {
       let formworkResult: FormworkOutput;
+      let diameter: number | undefined;
 
       if (shape === 'circular') {
-        const diameter = (custom?.get('diameter') || props.get('diameter') || 0.4) as number;
+        diameter = getProp(props, 'diameter', 0.4);
         formworkResult = calculateCircularColumnFormwork(diameter, height);
       } else {
-        const width = (custom?.get('width') || props.get('width') || 0.3) as number;
-        const depth = (custom?.get('depth') || props.get('depth') || 0.3) as number;
+        const width = getProp(props, 'width', 0.3);
+        const depth = getProp(props, 'depth', 0.3);
         formworkResult = calculateRectangularColumnFormwork(width, depth, height);
       }
 
-      const formworkAreaWithWaste = formworkResult.area * (1 + formworkWaste);
-      totalFormworkArea += formworkAreaWithWaste;
+      totalFormworkArea += formworkResult.area;
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_formwork`,
         sourceElementId: instance.id,
         trade: 'Formwork' as Trade,
         resourceKey: 'formwork-column',
         quantity: roundQuantity(
-          formworkAreaWithWaste,
+          formworkResult.area,
           roundingSettings.formwork || 2
         ),
         unit: 'm²',
-        formulaText: `${formworkResult.formulaText} × (1 + ${(formworkWaste * 100).toFixed(0)}% waste) = ${formworkAreaWithWaste.toFixed(2)} m²`,
-        inputsSnapshot: { ...formworkResult.inputs, waste: formworkWaste },
-        assumptions: [`Waste: ${(formworkWaste * 100).toFixed(0)}%`],
+        formulaText: formworkResult.formulaText,
+        inputsSnapshot: formworkResult.inputs,
+        assumptions: [diameter ? 'Cylindrical surface' : 'All 4 sides'],
         tags,
         calculatedAt: new Date(),
       });
@@ -584,7 +648,7 @@ export function calculateStructuralElements(
       const dpwhItem = rebarConfig.dpwhRebarItem || getDPWHRebarItem(rebarConfig.mainBars.diameter);
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_rebar_main`,
         sourceElementId: instance.id,
         trade: 'Rebar' as Trade,
         resourceKey: `rebar-${rebarConfig.mainBars.diameter}mm-grade${grade}-main`,
@@ -607,8 +671,8 @@ export function calculateStructuralElements(
 
     // Ties/Stirrups: (tieDiameter, tieSpacing, columnHeight, columnWidth, columnDepth, waste)
     if (rebarConfig.stirrups?.diameter && rebarConfig.stirrups?.spacing) {
-      const width = (props.get('width') || props.get('diameter') || 0.3) as number;
-      const depth = shape === 'rectangular' ? (props.get('depth') || 0.3) as number : width;
+      const width = getProp(props, 'width', 0) || getProp(props, 'diameter', 0.3);
+      const depth = shape === 'rectangular' ? getProp(props, 'depth', 0.3) : width;
 
       const tiesResult = calculateColumnTiesWeight(
         rebarConfig.stirrups.diameter,
@@ -625,7 +689,7 @@ export function calculateStructuralElements(
       const dpwhItem = getDPWHRebarItem(rebarConfig.stirrups.diameter);
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_rebar_ties`,
         sourceElementId: instance.id,
         trade: 'Rebar' as Trade,
         resourceKey: `rebar-${rebarConfig.stirrups.diameter}mm-grade${grade}-ties`,
@@ -660,12 +724,14 @@ export function calculateStructuralElements(
     const custom = instance.placement.customGeometry;
 
     // Get dimensions
-    const thickness = (custom?.get('thickness') || props.get('thickness') || 0.1) as number;
+    const thickness = getProp(props, 'thickness', 0.1);
 
-    // Calculate area from grid reference or custom
-    let area = (custom?.get('area') || props.get('area')) as number | undefined;
+    // Calculate dimensions from grid reference or custom - STORE xLength and yLength
+    let area: number | undefined;
+    let xLength: number | undefined;
+    let yLength: number | undefined;
     
-    if (!area && instance.placement.gridRef && instance.placement.gridRef.length >= 2) {
+    if (instance.placement.gridRef && instance.placement.gridRef.length >= 2) {
       // Slab grid reference format: ["A-C", "1-3"] - both should have spans
       const [xRef, yRef] = instance.placement.gridRef;
       
@@ -679,11 +745,17 @@ export function calculateStructuralElements(
         const y2 = getGridOffset(yEnd, 'y');
         
         if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
-          const width = Math.abs(x2 - x1);
-          const height = Math.abs(y2 - y1);
-          area = width * height;
+          xLength = Math.abs(x2 - x1);
+          yLength = Math.abs(y2 - y1);
+          area = xLength * yLength;
         }
       }
+    }
+    
+    // Fallback to custom or props
+    if (!area) {
+      const areaFromProps = getProp(props, 'area', 0);
+      if (areaFromProps > 0) area = areaFromProps;
     }
 
     if (!area) {
@@ -702,7 +774,6 @@ export function calculateStructuralElements(
     const roundingSettings = settings?.rounding || {};
     const concreteWaste = wasteSettings.concrete || 0.05;
     const rebarWaste = wasteSettings.rebar || 0.03;
-    const formworkWaste = wasteSettings.formwork || 0.02;
 
     const tags = [
       `type:slab`,
@@ -722,7 +793,7 @@ export function calculateStructuralElements(
       totalConcreteVolume += concreteResult.volumeWithWaste;
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_concrete`,
         sourceElementId: instance.id,
         trade: 'Concrete' as Trade,
         resourceKey: template.dpwhItemNumber || 'concrete-class-a',
@@ -743,26 +814,25 @@ export function calculateStructuralElements(
       );
     }
 
-    // 2. FORMWORK CALCULATION
+    // 2. FORMWORK CALCULATION - NO WASTE applied (matches BuildingEstimate)
     try {
       const formworkResult = calculateSlabFormwork(area);
-      const formworkAreaWithWaste = formworkResult.area * (1 + formworkWaste);
 
-      totalFormworkArea += formworkAreaWithWaste;
+      totalFormworkArea += formworkResult.area;
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_formwork`,
         sourceElementId: instance.id,
         trade: 'Formwork' as Trade,
         resourceKey: 'formwork-slab',
         quantity: roundQuantity(
-          formworkAreaWithWaste,
+          formworkResult.area,
           roundingSettings.formwork || 2
         ),
         unit: 'm²',
-        formulaText: `${formworkResult.formulaText} × (1 + ${(formworkWaste * 100).toFixed(0)}% waste) = ${formworkAreaWithWaste.toFixed(2)} m²`,
-        inputsSnapshot: { ...formworkResult.inputs, waste: formworkWaste },
-        assumptions: [`Waste: ${(formworkWaste * 100).toFixed(0)}%`],
+        formulaText: formworkResult.formulaText,
+        inputsSnapshot: formworkResult.inputs,
+        assumptions: ['Soffit formwork (bottom surface)'],
         tags,
         calculatedAt: new Date(),
       });
@@ -775,7 +845,7 @@ export function calculateStructuralElements(
     // 3. REBAR CALCULATION
     if (template.rebarConfig) {
       try {
-        processSlabRebar(instance, template, area, tags, rebarWaste, roundingSettings);
+        processSlabRebar(instance, template, area, xLength, yLength, tags, rebarWaste, roundingSettings);
       } catch (err) {
         errors.push(
           `Slab ${instance.id} rebar calculation error: ${err instanceof Error ? err.message : String(err)}`
@@ -788,22 +858,32 @@ export function calculateStructuralElements(
     instance: IElementInstance,
     template: IElementTemplate,
     area: number,
+    xLength: number | undefined,
+    yLength: number | undefined,
     tags: string[],
     rebarWaste: number,
     roundingSettings: Record<string, number>
   ) {
     const rebarConfig = template.rebarConfig!;
 
-    // Main bars (both directions): (barDiameter, spacing, spanLength, spanCount, waste)
-    if (rebarConfig.mainBars?.diameter && rebarConfig.mainBars?.spacing) {
-      const slabLength = Math.sqrt(area); // Assume square for simplicity
-      const spanCount = 1; // Single span assumption
+    // Fallback to square assumption if dimensions not available
+    if (!xLength || !yLength) {
+      xLength = Math.sqrt(area);
+      yLength = xLength;
+    }
+
+    // Main bars (typically in longer direction): (barDiameter, spacing, spanLength, spanCount, waste)
+    if (rebarConfig.mainBars?.diameter) {
+      // Use spacing or calculate from count (BuildingEstimate pattern)
+      const spacing = rebarConfig.mainBars.count 
+        ? yLength / (rebarConfig.mainBars.count - 1)
+        : (rebarConfig.mainBars.spacing || 0.15); // default 150mm spacing
 
       const mainBarsResult = calculateSlabMainBars(
         rebarConfig.mainBars.diameter,
-        rebarConfig.mainBars.spacing,
-        slabLength,
-        spanCount,
+        spacing,
+        xLength, // bar length
+        1, // single span for this panel
         rebarWaste
       );
 
@@ -813,7 +893,7 @@ export function calculateStructuralElements(
       const dpwhItem = rebarConfig.dpwhRebarItem || getDPWHRebarItem(rebarConfig.mainBars.diameter);
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_rebar_main`,
         sourceElementId: instance.id,
         trade: 'Rebar' as Trade,
         resourceKey: `rebar-${rebarConfig.mainBars.diameter}mm-grade${grade}-main`,
@@ -828,9 +908,47 @@ export function calculateStructuralElements(
           `Waste: ${(rebarWaste * 100).toFixed(0)}%`,
           `DPWH Item: ${dpwhItem}`,
           `Grade ${grade}`,
-          `Spacing: ${rebarConfig.mainBars.spacing}m`,
         ],
         tags: [...tags, `rebar:main`, `diameter:${rebarConfig.mainBars.diameter}mm`],
+        calculatedAt: new Date(),
+      });
+    }
+
+    // Secondary bars (perpendicular direction) - BuildingEstimate includes this
+    if (rebarConfig.secondaryBars?.diameter) {
+      const spacing = rebarConfig.secondaryBars.spacing || 0.15; // default 150mm spacing
+
+      const secondaryBarsResult = calculateSlabMainBars(
+        rebarConfig.secondaryBars.diameter,
+        spacing,
+        yLength, // bar length in perpendicular direction
+        1,
+        rebarWaste
+      );
+
+      totalRebarWeight += secondaryBarsResult.weight;
+
+      const grade = getRebarGrade(rebarConfig.secondaryBars.diameter);
+      const dpwhItem = getDPWHRebarItem(rebarConfig.secondaryBars.diameter);
+
+      takeoffLines.push({
+        id: `tof_${instance.id}_rebar_secondary`,
+        sourceElementId: instance.id,
+        trade: 'Rebar' as Trade,
+        resourceKey: `rebar-${rebarConfig.secondaryBars.diameter}mm-grade${grade}-secondary`,
+        quantity: roundQuantity(
+          secondaryBarsResult.weight,
+          roundingSettings.rebar || 2
+        ),
+        unit: 'kg',
+        formulaText: secondaryBarsResult.formulaText,
+        inputsSnapshot: secondaryBarsResult.inputs,
+        assumptions: [
+          `Waste: ${(rebarWaste * 100).toFixed(0)}%`,
+          `DPWH Item: ${dpwhItem}`,
+          `Grade ${grade}`,
+        ],
+        tags: [...tags, `rebar:secondary`, `diameter:${rebarConfig.secondaryBars.diameter}mm`],
         calculatedAt: new Date(),
       });
     }
@@ -848,14 +966,13 @@ export function calculateStructuralElements(
     const custom = instance.placement.customGeometry;
 
     // Get dimensions (assume rectangular footing)
-    const length = (custom?.get('length') || props.get('length') || 1.5) as number;
-    const width = (custom?.get('width') || props.get('width') || 1.5) as number;
-    const depth = (custom?.get('depth') || props.get('depth') || 0.5) as number;
+    const length = getProp(props, 'length', 1.5);
+    const width = getProp(props, 'width', 1.5);
+    const depth = getProp(props, 'depth', 0.5);
 
     const wasteSettings = settings?.waste || {};
     const roundingSettings = settings?.rounding || {};
     const concreteWaste = wasteSettings.concrete || 0.05;
-    const formworkWaste = wasteSettings.formwork || 0.02;
 
     const tags = [
       `type:foundation`,
@@ -872,7 +989,7 @@ export function calculateStructuralElements(
       totalConcreteVolume += volumeWithWaste;
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_concrete`,
         sourceElementId: instance.id,
         trade: 'Concrete' as Trade,
         resourceKey: template.dpwhItemNumber || 'concrete-class-a',
@@ -893,27 +1010,26 @@ export function calculateStructuralElements(
       );
     }
 
-    // 2. FORMWORK CALCULATION (perimeter × depth)
+    // 2. FORMWORK CALCULATION (perimeter × depth) - NO WASTE applied (matches BuildingEstimate)
     try {
       const perimeter = 2 * (length + width);
       const area = perimeter * depth;
-      const areaWithWaste = area * (1 + formworkWaste);
 
-      totalFormworkArea += areaWithWaste;
+      totalFormworkArea += area;
 
       takeoffLines.push({
-        id: uuidv4(),
+        id: `tof_${instance.id}_formwork`,
         sourceElementId: instance.id,
         trade: 'Formwork' as Trade,
         resourceKey: 'formwork-foundation',
         quantity: roundQuantity(
-          areaWithWaste,
+          area,
           roundingSettings.formwork || 2
         ),
         unit: 'm²',
-        formulaText: `A = Perimeter × Depth = ${perimeter.toFixed(2)} × ${depth} = ${area.toFixed(2)} m² (+ ${(formworkWaste * 100).toFixed(0)}% waste = ${areaWithWaste.toFixed(2)} m²)`,
-        inputsSnapshot: { length, width, depth, perimeter, waste: formworkWaste },
-        assumptions: [`Waste: ${(formworkWaste * 100).toFixed(0)}%`],
+        formulaText: `A = Perimeter × Depth = ${perimeter.toFixed(2)} × ${depth} = ${area.toFixed(2)} m²`,
+        inputsSnapshot: { length, width, depth, perimeter },
+        assumptions: ['All 4 vertical sides (bottom in contact with soil)'],
         tags,
         calculatedAt: new Date(),
       });
@@ -925,10 +1041,3 @@ export function calculateStructuralElements(
   }
 }
 
-/**
- * Helper: Round quantity to specified decimal places
- */
-function roundQuantity(value: number, decimals: number): number {
-  const multiplier = Math.pow(10, decimals);
-  return Math.round(value * multiplier) / multiplier;
-}
