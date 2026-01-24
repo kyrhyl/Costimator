@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -55,14 +55,13 @@ export default function Header() {
             </div>
 
             <div className="relative group">
-              <button suppressHydrationWarning className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isActive('/master') || isActive('/material-prices') || isActive('/catalog') ? 'bg-white text-blue-600 shadow-md' : 'text-white hover:bg-blue-500'}`}>
+              <button suppressHydrationWarning className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isActive('/master') || isActive('/catalog') ? 'bg-white text-blue-600 shadow-md' : 'text-white hover:bg-blue-500'}`}>
                 Master Data 
               </button>
               <div className="absolute left-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                 <Link href="/master" className={`block px-4 py-3 text-sm hover:bg-blue-50 first:rounded-t-lg ${pathname === '/master' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}> Master Data Home</Link>
                 <div className="border-t border-gray-100"></div>
-                <Link href="/master/materials" className={`block px-4 py-3 text-sm hover:bg-blue-50 ${isActive('/master/materials') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}> Materials</Link>
-                <Link href="/material-prices" className={`block px-4 py-3 text-sm hover:bg-blue-50 ${isActive('/material-prices') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}> Material Prices</Link>
+                <Link href="/master/materials" className={`block px-4 py-3 text-sm hover:bg-blue-50 ${isActive('/master/materials') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}> CMPD (Materials & Prices)</Link>
                 <Link href="/master/equipment" className={`block px-4 py-3 text-sm hover:bg-blue-50 ${isActive('/master/equipment') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}> Equipment</Link>
                 <Link href="/master/labor" className={`block px-4 py-3 text-sm hover:bg-blue-50 ${isActive('/master/labor') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}> Labor Rates</Link>
                 <div className="border-t border-gray-100"></div>

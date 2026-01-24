@@ -55,6 +55,9 @@ function validateInput<T>(schema: z.ZodSchema<T>, data: unknown) {
  * Query Parameters:
  * - materialCode: Filter by material code (exact match)
  * - location: Filter by location (partial match)
+ * - district: Filter by district (partial match)
+ * - cmpd_version: Filter by CMPD version (exact match)
+ * - isActive: Filter by active status (true/false)
  * - search: Search in description (partial match)
  * - dateFrom: Filter prices from this date (ISO format)
  * - dateTo: Filter prices to this date (ISO format)
@@ -69,6 +72,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const materialCode = searchParams.get('materialCode');
     const location = searchParams.get('location');
+    const district = searchParams.get('district');
+    const cmpd_version = searchParams.get('cmpd_version');
+    const isActive = searchParams.get('isActive');
     const search = searchParams.get('search');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
@@ -86,8 +92,23 @@ export async function GET(request: NextRequest) {
       query.location = { $regex: location, $options: 'i' };
     }
     
+    if (district) {
+      query.district = { $regex: district, $options: 'i' };
+    }
+    
+    if (cmpd_version) {
+      query.cmpd_version = cmpd_version;
+    }
+    
+    if (isActive !== null && isActive !== undefined && isActive !== 'all') {
+      query.isActive = isActive === 'true';
+    }
+    
     if (search) {
-      query.description = { $regex: search, $options: 'i' };
+      query.$or = [
+        { description: { $regex: search, $options: 'i' } },
+        { materialCode: { $regex: search, $options: 'i' } }
+      ];
     }
     
     if (dateFrom || dateTo) {

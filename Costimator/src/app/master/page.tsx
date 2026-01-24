@@ -5,12 +5,12 @@ import Link from 'next/link';
 export default function MasterDataPage() {
   const masterDataSections = [
     {
-      title: 'Materials',
-      description: 'Manage construction materials database with codes, descriptions, and specifications',
+      title: 'CMPD (Materials & Prices)',
+      description: 'Construction Materials Price Data - Manage base materials and district-specific pricing with bulk import support',
       href: '/master/materials',
       icon: '📦',
       color: 'blue',
-      stats: 'Import from CSV or add manually'
+      stats: 'Base prices + District CMPD'
     },
     {
       title: 'Equipment',
@@ -35,14 +35,6 @@ export default function MasterDataPage() {
       icon: '📋',
       color: 'purple',
       stats: 'Complete DPWH database'
-    },
-    {
-      title: 'Material Prices',
-      description: 'Location and date-specific material pricing for accurate cost estimation',
-      href: '/material-prices',
-      icon: '💵',
-      color: 'indigo',
-      stats: 'Historical price tracking'
     },
   ];
 
@@ -85,7 +77,7 @@ export default function MasterDataPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Master Data Management</h1>
           <p className="text-gray-600">
-            Centralized reference data for materials, equipment, labor, and DPWH standards
+            Centralized reference data for CMPD, equipment, labor rates, and DPWH standards
           </p>
         </div>
 
@@ -152,14 +144,15 @@ export default function MasterDataPage() {
               <h4 className="font-semibold text-gray-700 mb-2">What is Master Data?</h4>
               <p className="leading-relaxed">
                 Master data is the core reference information used across all projects and estimates. 
-                It includes materials, equipment, labor rates, and DPWH pay items that ensure consistency 
-                and accuracy in cost calculations.
+                It includes CMPD (Construction Materials Price Data) with district-specific pricing, equipment, 
+                labor rates, and DPWH pay items that ensure consistency and accuracy in cost calculations.
               </p>
             </div>
             <div>
               <h4 className="font-semibold text-gray-700 mb-2">Best Practices</h4>
               <ul className="space-y-1 leading-relaxed">
-                <li>• Keep material and equipment databases up-to-date</li>
+                <li>• Update CMPD prices regularly from district offices</li>
+                <li>• Import CMPD data with proper version tracking</li>
                 <li>• Update labor rates when DOLE releases new standards</li>
                 <li>• Maintain historical pricing for trend analysis</li>
                 <li>• Regular backup and export of master data</li>

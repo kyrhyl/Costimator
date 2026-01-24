@@ -15,13 +15,37 @@ interface Material {
   updatedAt: string;
 }
 
-export default function MaterialsPage() {
+interface MaterialPrice {
+  _id: string;
+  materialCode: string;
+  description: string;
+  unit: string;
+  location: string;
+  district?: string;
+  unitCost: number;
+  brand?: string;
+  specification?: string;
+  supplier?: string;
+  effectiveDate: string;
+  cmpd_version?: string;
+  isActive?: boolean;
+  importBatch?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export default function CMPDPage() {
+  const [activeTab, setActiveTab] = useState<'materials' | 'prices'>('materials');
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [prices, setPrices] = useState<MaterialPrice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pricesLoading, setPricesLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [districtFilter, setDistrictFilter] = useState('');
+  const [versionFilter, setVersionFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
@@ -53,8 +77,12 @@ export default function MaterialsPage() {
   });
 
   useEffect(() => {
-    fetchMaterials();
-  }, [searchTerm, categoryFilter, activeFilter]);
+    if (activeTab === 'materials') {
+      fetchMaterials();
+    } else {
+      fetchPrices();
+    }
+  }, [searchTerm, categoryFilter, activeFilter, districtFilter, versionFilter, activeTab]);
 
   const fetchMaterials = async () => {
     try {
@@ -82,6 +110,36 @@ export default function MaterialsPage() {
       setError(err.message || 'Failed to fetch materials');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPrices = async () => {
+    try {
+      setPricesLoading(true);
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (districtFilter) params.append('district', districtFilter);
+      if (versionFilter) params.append('cmpd_version', versionFilter);
+      if (activeFilter !== 'all') params.append('isActive', activeFilter);
+      
+      const response = await fetch(`/api/master/materials/prices?${params}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setPrices(result.data);
+        setError('');
+      } else {
+        setError(result.error || 'Failed to fetch prices');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch prices');
+    } finally {
+      setPricesLoading(false);
     }
   };
 
@@ -264,88 +322,198 @@ export default function MaterialsPage() {
   };
 
   const categories = [...new Set(materials.map(m => m.category).filter(Boolean))];
+  const districts = [...new Set(prices.map(p => p.district).filter(Boolean))];
+  const versions = [...new Set(prices.map(p => p.cmpd_version).filter(Boolean))];
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Materials Management</h1>
-        <p className="text-gray-600">Manage material catalog with base prices</p>
+        <h1 className="text-3xl font-bold mb-2">CMPD Management</h1>
+        <p className="text-gray-600">Construction Materials Price Data - Base materials and district-specific pricing</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="flex space-x-8">
+          <button
+            onClick={() => setActiveTab('materials')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'materials'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Base Materials Catalog
+          </button>
+          <button
+            onClick={() => setActiveTab('prices')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'prices'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            District Prices (CMPD Imports)
+          </button>
+        </nav>
       </div>
 
       {/* Filters and Actions */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search Materials
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search code or description..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+      {activeTab === 'materials' ? (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search Materials
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search code or description..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={activeFilter}
+                onChange={(e) => setActiveFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="true">Active Only</option>
+                <option value="false">Inactive Only</option>
+              </select>
+            </div>
+            
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => {
+                  setEditingMaterial(null);
+                  resetForm();
+                  setShowForm(true);
+                }}
+                className="flex-1 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                + Add Material
+              </button>
+              <button
+                onClick={() => {
+                  resetImportModal();
+                  setShowImportModal(true);
+                }}
+                className="flex-1 bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
+                Import CMPD
+              </button>
+            </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category
-            </label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Status
-            </label>
-            <select
-              value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="true">Active Only</option>
-              <option value="false">Inactive Only</option>
-            </select>
-          </div>
-          
-          <div className="flex items-end gap-2">
-            <button
-              onClick={() => {
-                setEditingMaterial(null);
-                resetForm();
-                setShowForm(true);
-              }}
-              className="flex-1 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
-            >
-              + Add New Material
-            </button>
-            <button
-              onClick={() => {
-                resetImportModal();
-                setShowImportModal(true);
-              }}
-              className="flex-1 bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors"
-            >
-              Import CMPD
-            </button>
+          <div className="text-sm text-gray-500">
+            Total: {materials.length} material{materials.length !== 1 ? 's' : ''}
           </div>
         </div>
-        
-        <div className="text-sm text-gray-500">
-          Total: {materials.length} material{materials.length !== 1 ? 's' : ''}
+      ) : (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search material code..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                District
+              </label>
+              <select
+                value={districtFilter}
+                onChange={(e) => setDistrictFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Districts</option>
+                {districts.map(dist => (
+                  <option key={dist} value={dist}>{dist}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                CMPD Version
+              </label>
+              <select
+                value={versionFilter}
+                onChange={(e) => setVersionFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Versions</option>
+                {versions.map(ver => (
+                  <option key={ver} value={ver}>{ver}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={activeFilter}
+                onChange={(e) => setActiveFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="true">Active Only</option>
+                <option value="false">Inactive Only</option>
+              </select>
+            </div>
+            
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  resetImportModal();
+                  setShowImportModal(true);
+                }}
+                className="w-full bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
+                Import CMPD
+              </button>
+            </div>
+          </div>
+          
+          <div className="text-sm text-gray-500">
+            Total: {prices.length} price record{prices.length !== 1 ? 's' : ''}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Create/Edit Form Modal */}
       {showForm && (
@@ -700,87 +868,160 @@ export default function MaterialsPage() {
 
       {/* Data Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading materials...</div>
-        ) : error ? (
-          <div className="p-8 text-center text-red-600">{error}</div>
-        ) : materials.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No materials found. Click "Add New Material" to create one.
-          </div>
+        {activeTab === 'materials' ? (
+          // Base Materials Table
+          loading ? (
+            <div className="p-8 text-center text-gray-500">Loading materials...</div>
+          ) : error ? (
+            <div className="p-8 text-center text-red-600">{error}</div>
+          ) : materials.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No materials found. Click "Add Material" to create one.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Base Price</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Hauling</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {materials.map((material) => (
+                    <tr key={material._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{material.materialCode}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{material.materialDescription}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {material.category || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {material.unit}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                        ₱{material.basePrice.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          material.includeHauling
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {material.includeHauling ? '✓ Yes' : '✗ No'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <button
+                          onClick={() => toggleActive(material)}
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            material.isActive
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {material.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <button
+                          onClick={() => handleEdit(material)}
+                          className="text-blue-600 hover:text-blue-900 mr-4"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(material._id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Base Price</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Hauling</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {materials.map((material) => (
-                  <tr key={material._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{material.materialCode}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{material.materialDescription}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {material.category || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {material.unit}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                      ₱{material.basePrice.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        material.includeHauling
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {material.includeHauling ? '✓ Yes' : '✗ No'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <button
-                        onClick={() => toggleActive(material)}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          material.isActive
+          // District Prices Table
+          pricesLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading district prices...</div>
+          ) : error ? (
+            <div className="p-8 text-center text-red-600">{error}</div>
+          ) : prices.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No district prices found. Click "Import CMPD" to upload district-specific pricing data.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Material Code</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">District</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CMPD Version</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Brand</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effective Date</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {prices.map((price) => (
+                    <tr key={price._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{price.materialCode}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{price.description}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                          {price.district || '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {price.cmpd_version || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {price.unit}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                        ₱{price.unitCost.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {price.brand || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(price.effectiveDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          price.isActive
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {material.isActive ? 'Active' : 'Inactive'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(material)}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(material._id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        }`}>
+                          {price.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
       </div>
     </div>
