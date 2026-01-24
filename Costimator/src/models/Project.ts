@@ -174,6 +174,10 @@ export interface IProject extends Document {
   roofPlanes?: any[];
   scheduleItems?: any[];
 
+  // Multi-version architecture references
+  activeTakeoffVersionId?: mongoose.Types.ObjectId;
+  activeCostEstimateId?: mongoose.Types.ObjectId;
+
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
@@ -610,6 +614,18 @@ const ProjectSchema = new Schema<IProject>(
     roofTypes: [RoofTypeSchema],
     roofPlanes: [RoofPlaneSchema],
     scheduleItems: [ScheduleItemSchema],
+
+    // Multi-version architecture references
+    activeTakeoffVersionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'TakeoffVersion',
+      default: null,
+    },
+    activeCostEstimateId: {
+      type: Schema.Types.ObjectId,
+      ref: 'CostEstimate',
+      default: null,
+    },
   },
   {
     timestamps: true,
