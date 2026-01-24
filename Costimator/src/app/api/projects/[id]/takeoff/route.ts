@@ -7,7 +7,6 @@ import { calculateStructuralElements } from '@/lib/logic/calculateElements';
 import { calculateFinishingWorks } from '@/lib/logic/calculateFinishes';
 import { calculateRoofing } from '@/lib/logic/calculateRoofing';
 import { calculateScheduleItems } from '@/lib/logic/calculateScheduleItems';
-import { generateBOQFromTakeoffLines } from '@/lib/logic/generateBOQ';
 import type { TakeoffLine } from '@/types';
 
 // POST /api/projects/[id]/takeoff - Generate takeoff for a project
@@ -145,34 +144,6 @@ export async function POST(
     }
 
     // ===================================
-    // AUTO-GENERATE BOQ FROM TAKEOFF LINES
-    // ===================================
-    let boqLines: any[] = [];
-    let boqWarnings: string[] = [];
-    let boqErrors: string[] = [];
-    
-    try {
-      const boqResult = generateBOQFromTakeoffLines(allTakeoffLines, project);
-      boqLines = boqResult.boqLines;
-      boqWarnings = boqResult.warnings;
-      boqErrors = boqResult.errors;
-      
-      console.log(`✓ BOQ auto-generated: ${boqLines.length} lines`);
-      
-      // Add BOQ warnings/errors to main errors array
-      if (boqWarnings.length > 0) {
-        boqWarnings.forEach(w => errors.push(`[BOQ] ${w}`));
-      }
-      if (boqErrors.length > 0) {
-        boqErrors.forEach(e => errors.push(`[BOQ] ${e}`));
-      }
-    } catch (boqError) {
-      const errorMsg = `BOQ auto-generation failed: ${boqError instanceof Error ? boqError.message : String(boqError)}`;
-      console.error(errorMsg);
-      errors.push(errorMsg);
-    }
-
-    // ===================================
     // SUMMARY
     // ===================================
     const summary = {
@@ -180,7 +151,7 @@ export async function POST(
       totalRebar: totalRebarWeight, // kg
       totalFormwork: totalFormworkArea, // m²
       takeoffLineCount: allTakeoffLines.length,
-      boqLineCount: boqLines.length,
+      boqLineCount: 0, // BOQ is generated separately via /api/projects/[id]/boq
     };
 
     // Create calc run record
@@ -191,7 +162,7 @@ export async function POST(
       status: 'completed', // 'running', 'completed', or 'failed'
       summary,
       takeoffLines: allTakeoffLines,
-      boqLines: boqLines,
+      boqLines: [], // BOQ is generated separately when user selects this run
       errors,
     });
 

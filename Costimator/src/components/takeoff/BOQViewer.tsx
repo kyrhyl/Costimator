@@ -25,11 +25,22 @@ interface BOQSummary {
 interface CalcRun {
   runId: string;
   timestamp: string;
+  status: string;
   boqLines: BOQLine[];
   summary: {
     totalConcrete: number;
     totalRebar: number;
     totalFormwork: number;
+    takeoffLineCount: number;
+    boqLineCount: number;
+  };
+}
+
+interface CalcRunListItem {
+  runId: string;
+  timestamp: string;
+  status: string;
+  summary: {
     takeoffLineCount: number;
     boqLineCount: number;
   };
@@ -49,42 +60,80 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
    const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
    const [costingEnabled, setCostingEnabled] = useState(false);
    const [projectInfo, setProjectInfo] = useState<{ district?: string; cmpdVersion?: string } | null>(null);
+   const [calcRuns, setCalcRuns] = useState<CalcRunListItem[]>([]);
+   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+   const [showCalcRunSelector, setShowCalcRunSelector] = useState(false);
 
-  // Load latest CalcRun on mount
+  // Load calc runs and latest BOQ on mount
   useEffect(() => {
-    loadLatestCalcRun();
+    loadCalcRuns();
     fetchProjectInfo();
   }, [projectId]);
 
-  const loadLatestCalcRun = async () => {
+  const loadCalcRuns = async () => {
     try {
-      const res = await fetch(`/api/projects/${projectId}/calcruns/latest`);
+      const res = await fetch(`/api/projects/${projectId}/calcruns`);
       if (res.ok) {
-        const data: CalcRun = await res.json();
-        if (data.boqLines && data.boqLines.length > 0) {
-          setBoqLines(data.boqLines);
-          const concreteLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Concrete'));
-          const rebarLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Rebar'));
-          const formworkLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Formwork'));
-          const totalConcreteQty = concreteLines.reduce((sum, line) => sum + line.quantity, 0);
-          const totalRebarQty = rebarLines.reduce((sum, line) => sum + line.quantity, 0);
-          const totalFormworkQty = formworkLines.reduce((sum, line) => sum + line.quantity, 0);
-          setSummary({
-            totalLines: data.summary.boqLineCount || 0,
-            totalQuantity: totalConcreteQty + totalRebarQty + totalFormworkQty,
-            trades: { 
-              Concrete: totalConcreteQty,
-              Rebar: totalRebarQty,
-              Formwork: totalFormworkQty,
-            },
-          });
-          setLastCalculated(data.timestamp);
-          setHasBoq(true);
-          setCurrentRunId(data.runId);
+        const result = await res.json();
+        if (result.success && result.data) {
+          setCalcRuns(result.data);
+          
+          // Auto-select the most recent run with BOQ, or the most recent run
+          const runWithBOQ = result.data.find((r: CalcRunListItem) => r.summary.boqLineCount > 0);
+          const targetRun = runWithBOQ || result.data[0];
+          
+          if (targetRun) {
+            setSelectedRunId(targetRun.runId);
+            loadCalcRunData(targetRun.runId);
+          }
         }
       }
     } catch (err) {
-      console.error('Failed to load latest calc run:', err);
+      console.error('Failed to load calc runs:', err);
+    }
+  };
+
+  const loadCalcRunData = async (runId: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/projects/${projectId}/calcruns/latest`);
+      if (res.ok) {
+        const result = await res.json();
+        const data: CalcRun = result.success ? result.data : result;
+        
+        if (data.runId === runId || !runId) {
+          if (data.boqLines && data.boqLines.length > 0) {
+            setBoqLines(data.boqLines);
+            const concreteLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Concrete'));
+            const rebarLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Rebar'));
+            const formworkLines = data.boqLines.filter(line => line.tags.some(tag => tag === 'trade:Formwork'));
+            const totalConcreteQty = concreteLines.reduce((sum, line) => sum + line.quantity, 0);
+            const totalRebarQty = rebarLines.reduce((sum, line) => sum + line.quantity, 0);
+            const totalFormworkQty = formworkLines.reduce((sum, line) => sum + line.quantity, 0);
+            setSummary({
+              totalLines: data.summary.boqLineCount || 0,
+              totalQuantity: totalConcreteQty + totalRebarQty + totalFormworkQty,
+              trades: { 
+                Concrete: totalConcreteQty,
+                Rebar: totalRebarQty,
+                Formwork: totalFormworkQty,
+              },
+            });
+            setLastCalculated(data.timestamp);
+            setHasBoq(true);
+            setCurrentRunId(data.runId);
+          } else {
+            setHasBoq(false);
+            setBoqLines([]);
+            setSummary(null);
+            setCurrentRunId(data.runId);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load calc run:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -106,6 +155,11 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
   };
 
   const generateBOQ = async () => {
+    if (!selectedRunId) {
+      setError('Please select a quantity takeoff run first');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -115,8 +169,7 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          takeoffLines,
-          runId: currentRunId, // Pass runId to update existing CalcRun
+          runId: selectedRunId, // Generate from selected CalcRun
         }),
       });
 
@@ -130,9 +183,14 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
       setSummary(data.summary || null);
       setLastCalculated(new Date().toISOString());
       setHasBoq(true);
+      setCurrentRunId(selectedRunId);
+      
       if (data.warnings && data.warnings.length > 0) {
         setWarnings(data.warnings);
       }
+      
+      // Reload calc runs to update BOQ counts
+      loadCalcRuns();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate BOQ');
     } finally {
@@ -530,8 +588,119 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
 
   return (
     <div className="space-y-6">
-      {/* Generate Button */}
+      {/* CalcRun Selector */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold mb-2">Select Quantity Takeoff Run</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Choose a saved quantity takeoff to generate BOQ from
+            </p>
+            
+            {calcRuns.length === 0 ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                <p className="text-sm text-yellow-800">
+                  No quantity takeoff runs found. Please run a takeoff calculation first in the Takeoff tab.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-2">
+                  {calcRuns.map((run) => (
+                    <div
+                      key={run.runId}
+                      onClick={() => {
+                        setSelectedRunId(run.runId);
+                        loadCalcRunData(run.runId);
+                      }}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedRunId === run.runId
+                          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {new Date(run.timestamp).toLocaleString()}
+                            </span>
+                            {run.summary.boqLineCount > 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                BOQ Generated
+                              </span>
+                            )}
+                            {selectedRunId === run.runId && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                Selected
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 flex items-center gap-4 text-xs text-gray-600">
+                            <span>Run ID: {run.runId.slice(0, 8)}...</span>
+                            <span>{run.summary.takeoffLineCount} takeoff lines</span>
+                            {run.summary.boqLineCount > 0 && (
+                              <span>{run.summary.boqLineCount} BOQ lines</span>
+                            )}
+                          </div>
+                        </div>
+                        {selectedRunId === run.runId && (
+                          <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <button
+                  onClick={generateBOQ}
+                  disabled={loading || !selectedRunId}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-400 font-semibold text-sm flex items-center justify-center gap-2 shadow-md"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Generating BOQ...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      </svg>
+                      Generate BOQ from Selected Takeoff
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Generate Button */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">{error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+        
+        {warnings.length > 0 && (
+          <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4">
+            <p className="text-sm font-medium text-yellow-800 mb-2">Warnings:</p>
+            <ul className="list-disc list-inside text-xs text-yellow-700 space-y-1">
+              {warnings.map((warning, idx) => (
+                <li key={idx}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {hasBoq && (
         <div className="flex justify-between items-center">
           <div>
             <h3 className="text-lg font-semibold mb-2">Bill of Quantities (BOQ)</h3>
@@ -608,41 +777,10 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
               </svg>
               CSV
             </button>
-            <button
-              onClick={generateBOQ}
-              disabled={loading || takeoffLines.length === 0}
-              className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 font-medium"
-            >
-              {loading ? 'Generating...' : hasBoq ? 'Regenerate BOQ' : 'Generate BOQ'}
-            </button>
           </div>
         </div>
-
-        {takeoffLines.length === 0 && (
-          <p className="mt-4 text-sm text-amber-600">
-            No takeoff lines available. Generate takeoff first.
-          </p>
         )}
       </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {/* Warnings Display */}
-      {warnings.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <h4 className="font-semibold text-amber-800 mb-2">Warnings</h4>
-          <ul className="list-disc list-inside text-sm text-amber-700 space-y-1">
-            {warnings.map((warning, idx) => (
-              <li key={idx}>{warning}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {/* Summary */}
       {summary && (
