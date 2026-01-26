@@ -13,7 +13,7 @@ interface IBOQLine {
   partDescription?: string;
   division?: string;
   payItemNumber?: string;
-  unitRate?: number;
+  unitPrice?: number;
   totalAmount?: number;
   materialCost?: number;
   laborCost?: number;
@@ -178,17 +178,17 @@ export default function EstimateReportsPage() {
       } else if (reportType === 'detailed') {
         // Detailed BOQ
         const tableData = estimate.boqLines.map(line => {
-          const unitRateSubmitted = line.breakdown?.totalSubmitted || line.unitRate || 0;
-          const unitRateEvaluated = line.breakdown?.totalEvaluated || line.unitRate || 0;
+          const unitPriceSubmitted = line.breakdown?.totalSubmitted || line.unitPrice || 0;
+          const unitPriceEvaluated = line.breakdown?.totalEvaluated || line.unitPrice || 0;
           return [
             line.itemNo,
             line.description,
             line.unit,
             line.quantity.toLocaleString(),
-            formatCurrency(unitRateSubmitted),
-            formatCurrency(unitRateSubmitted * line.quantity),
-            formatCurrency(unitRateEvaluated),
-            formatCurrency(unitRateEvaluated * line.quantity)
+            formatCurrency(unitPriceSubmitted),
+            formatCurrency(unitPriceSubmitted * line.quantity),
+            formatCurrency(unitPriceEvaluated),
+            formatCurrency(unitPriceEvaluated * line.quantity)
           ];
         });
         
@@ -308,22 +308,22 @@ export default function EstimateReportsPage() {
       
       // Detailed BOQ Sheet
       const boqData: (string | number)[][] = [
-        ['Item No', 'Description', 'Pay Item', 'Unit', 'Quantity', 'Unit Rate (Sub.)', 'Amount (Sub.)', 'Unit Rate (Eval.)', 'Amount (Eval.)']
+        ['Item No', 'Description', 'Pay Item', 'Unit', 'Quantity', 'Unit Price (Sub.)', 'Amount (Sub.)', 'Unit Price (Eval.)', 'Amount (Eval.)']
       ];
       
       estimate.boqLines.forEach(line => {
-        const unitRateSubmitted = line.breakdown?.totalSubmitted || line.unitRate || 0;
-        const unitRateEvaluated = line.breakdown?.totalEvaluated || line.unitRate || 0;
+        const unitPriceSubmitted = line.breakdown?.totalSubmitted || line.unitPrice || 0;
+        const unitPriceEvaluated = line.breakdown?.totalEvaluated || line.unitPrice || 0;
         boqData.push([
           line.itemNo,
           line.description,
           line.payItemNumber || '',
           line.unit,
           line.quantity,
-          unitRateSubmitted,
-          unitRateSubmitted * line.quantity,
-          unitRateEvaluated,
-          unitRateEvaluated * line.quantity
+          unitPriceSubmitted,
+          unitPriceSubmitted * line.quantity,
+          unitPriceEvaluated,
+          unitPriceEvaluated * line.quantity
         ]);
       });
       
@@ -600,18 +600,18 @@ export default function EstimateReportsPage() {
                     <th className="px-3 py-3 text-left font-semibold">Pay Item</th>
                     <th className="px-3 py-3 text-center font-semibold">Unit</th>
                     <th className="px-3 py-3 text-right font-semibold">Quantity</th>
-                    <th className="px-3 py-3 text-right font-semibold">Unit Rate (Sub.)</th>
+                    <th className="px-3 py-3 text-right font-semibold">Unit Price (Sub.)</th>
                     <th className="px-3 py-3 text-right font-semibold">Amount (Sub.)</th>
-                    <th className="px-3 py-3 text-right font-semibold">Unit Rate (Eval.)</th>
+                    <th className="px-3 py-3 text-right font-semibold">Unit Price (Eval.)</th>
                     <th className="px-3 py-3 text-right font-semibold">Amount (Eval.)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {estimate.boqLines.map((line, index) => {
-                    const unitRateSubmitted = line.breakdown?.totalSubmitted || line.unitRate || 0;
-                    const unitRateEvaluated = line.breakdown?.totalEvaluated || line.unitRate || 0;
-                    const amountSubmitted = unitRateSubmitted * line.quantity;
-                    const amountEvaluated = unitRateEvaluated * line.quantity;
+                    const unitPriceSubmitted = line.breakdown?.totalSubmitted || line.unitPrice || 0;
+                    const unitPriceEvaluated = line.breakdown?.totalEvaluated || line.unitPrice || 0;
+                    const amountSubmitted = unitPriceSubmitted * line.quantity;
+                    const amountEvaluated = unitPriceEvaluated * line.quantity;
 
                     return (
                       <tr key={index} className="hover:bg-gray-50">
@@ -627,9 +627,9 @@ export default function EstimateReportsPage() {
                         <td className="px-3 py-2 text-gray-600">{line.payItemNumber || '-'}</td>
                         <td className="px-3 py-2 text-center">{line.unit}</td>
                         <td className="px-3 py-2 text-right font-medium">{line.quantity.toLocaleString()}</td>
-                        <td className="px-3 py-2 text-right">{formatCurrency(unitRateSubmitted)}</td>
+                        <td className="px-3 py-2 text-right">{formatCurrency(unitPriceSubmitted)}</td>
                         <td className="px-3 py-2 text-right font-semibold text-green-700">{formatCurrency(amountSubmitted)}</td>
-                        <td className="px-3 py-2 text-right">{formatCurrency(unitRateEvaluated)}</td>
+                        <td className="px-3 py-2 text-right">{formatCurrency(unitPriceEvaluated)}</td>
                         <td className="px-3 py-2 text-right font-semibold text-blue-700">{formatCurrency(amountEvaluated)}</td>
                       </tr>
                     );

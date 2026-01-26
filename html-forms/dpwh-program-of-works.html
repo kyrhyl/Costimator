@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DPWH Program of Works / Budget Cost</title>
+    <style>
+      :root {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: #222;
+        --border: 1px solid #4b4b4b;
+        --border-light: 1px solid #8d8d8d;
+        --bg: #f8f8f8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 1.5rem;
+        background: #e6e6e6;
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem;
+        background: white;
+        border: var(--border);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+      }
+
+      header h1 {
+        margin: 0.2rem 0 0;
+        font-size: 1.25rem;
+        letter-spacing: 0.05em;
+      }
+
+      header p {
+        margin: 0;
+        font-size: 0.9rem;
+      }
+
+      .form-grid,
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        border: var(--border-light);
+        font-size: 0.95rem;
+      }
+
+      textarea {
+        min-height: 60px;
+        resize: vertical;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1.25rem;
+        font-size: 0.85rem;
+      }
+
+      th,
+      td {
+        border: var(--border-light);
+        padding: 0.45rem 0.35rem;
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      th {
+        background: var(--bg);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .section-title {
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        border-bottom: var(--border);
+        padding-bottom: 0.3rem;
+        margin: 1.5rem 0 0.6rem;
+      }
+
+      .signature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+
+      .signature {
+        min-height: 120px;
+        border: var(--border);
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        font-size: 0.85rem;
+      }
+
+      .signature span {
+        border-top: var(--border);
+        margin-top: 1rem;
+        padding-top: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      @media print {
+        body {
+          background: white;
+          padding: 0;
+        }
+
+        main {
+          box-shadow: none;
+          border: none;
+          padding: 1rem;
+        }
+
+        input,
+        textarea {
+          border: none;
+          border-bottom: 1px solid #aaa;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p>Republic of the Philippines<br />Department of Public Works and Highways</p>
+        <h1>Program of Works / Budget Cost</h1>
+        <p>Form No. DPWH-2950-13 Rev00</p>
+      </header>
+
+      <section class="form-grid">
+        <label>
+          Implementing Office
+          <input type="text" />
+        </label>
+        <label>
+          Address
+          <input type="text" />
+        </label>
+        <label>
+          Project Name
+          <input type="text" />
+        </label>
+        <label>
+          Project Location
+          <input type="text" />
+        </label>
+        <label>
+          Work Location
+          <input type="text" />
+        </label>
+        <label>
+          Date Proposed
+          <input type="date" />
+        </label>
+        <label>
+          Target Start Date
+          <input type="date" />
+        </label>
+        <label>
+          Target Completion Date
+          <input type="date" />
+        </label>
+      </section>
+
+      <section class="info-grid">
+        <label>
+          Contract Duration (calendar days)
+          <input type="number" />
+        </label>
+        <label>
+          Workable Days
+          <input type="number" />
+        </label>
+        <label>
+          Predetermined Unworkable Days
+          <input type="number" />
+        </label>
+        <label>
+          Sundays
+          <input type="number" />
+        </label>
+        <label>
+          Holidays
+          <input type="number" />
+        </label>
+        <label>
+          Rainy Days
+          <input type="number" />
+        </label>
+      </section>
+
+      <h2 class="section-title">Project Component Details</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Project Component ID</th>
+            <th>Infra ID</th>
+            <th>Chainage Start</th>
+            <th>Chainage End</th>
+            <th>Station Start</th>
+            <th>Station End</th>
+            <th>Coordinates Start (X/Y)</th>
+            <th>Coordinates End (X/Y)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+          </tr>
+          <tr>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+            <td><input type="text" /></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="info-grid">
+        <label>
+          Fund Source
+          <input type="text" />
+        </label>
+        <label>
+          Project ID
+          <input type="text" />
+        </label>
+        <label>
+          Funding Agreement
+          <input type="text" />
+        </label>
+        <label>
+          Funding Organization
+          <input type="text" />
+        </label>
+        <label>
+          Physical Target
+          <input type="text" />
+        </label>
+        <label>
+          Target Amount
+          <input type="text" />
+        </label>
+        <label>
+          Unit of Measure
+          <input type="text" />
+        </label>
+      </div>
+
+      <h2 class="section-title">Description of Works</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Part</th>
+            <th>Description of Works to be Done</th>
+            <th>Quantity</th>
+            <th>Unit</th>
+            <th>% Total (Submitted)</th>
+            <th>Total Direct Cost (Submitted)</th>
+            <th>% Total (Evaluated)</th>
+            <th>Total Direct Cost (Evaluated)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A</td>
+            <td><input type="text" placeholder="Facilities for the Engineer" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td>B</td>
+            <td><input type="text" placeholder="Other General Requirements" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td>C</td>
+            <td><input type="text" placeholder="Earthwork" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td>D</td>
+            <td><input type="text" placeholder="Subbase and Base Course" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td>E</td>
+            <td><input type="text" placeholder="Surface Course" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td>F</td>
+            <td><input type="text" placeholder="Bridge Construction" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td>G</td>
+            <td><input type="text" placeholder="Drainage / Slope Protection" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td>H</td>
+            <td><input type="text" placeholder="Miscellaneous Structures" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td>I</td>
+            <td><input type="text" placeholder="Traffic Details" /></td>
+            <td><input type="number" /></td>
+            <td><input type="text" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+          <tr>
+            <td colspan="4" style="text-align: right; font-weight: bold">TOTAL</td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+            <td><input type="number" /></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="info-grid">
+        <label>
+          Minimum Equipment Requirement
+          <textarea placeholder="List equipment description, capacity, number of units..."></textarea>
+        </label>
+        <label>
+          Breakdown of Expenditures
+          <textarea placeholder="Labor, Materials, Equipment, OCM, VAT, etc."></textarea>
+        </label>
+      </div>
+
+      <h2 class="section-title">Approvals</h2>
+      <div class="signature-grid">
+        <div class="signature">
+          <p>Prepared by</p>
+          <span>Name &amp; Signature / Position / Office</span>
+        </div>
+        <div class="signature">
+          <p>Checked / Submitted by</p>
+          <span>Name &amp; Signature / Position / Office</span>
+        </div>
+        <div class="signature">
+          <p>Recommending Approval</p>
+          <span>Name &amp; Signature / Position / Office</span>
+        </div>
+        <div class="signature">
+          <p>Approval</p>
+          <span>Name &amp; Signature / Position / Office</span>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

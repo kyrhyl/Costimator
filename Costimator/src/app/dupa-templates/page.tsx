@@ -9,6 +9,7 @@ interface DUPATemplate {
   payItemDescription: string;
   unitOfMeasurement: string;
   outputPerHour: number;
+  part: string;
   category: string;
   laborTemplate: any[];
   equipmentTemplate: any[];
@@ -28,10 +29,12 @@ export default function DUPATemplatesPage() {
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [partFilter, setPartFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
-  // Categories extracted from data
+  // Parts and categories extracted from data
+  const [parts, setParts] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   
   // Instantiate modal
@@ -54,6 +57,7 @@ export default function DUPATemplatesPage() {
       const params = new URLSearchParams();
       
       if (searchTerm) params.append('search', searchTerm);
+      if (partFilter) params.append('part', partFilter);
       if (categoryFilter) params.append('category', categoryFilter);
       if (statusFilter !== 'all') params.append('isActive', statusFilter);
       
@@ -62,6 +66,10 @@ export default function DUPATemplatesPage() {
       
       if (data.success) {
         setTemplates(data.data);
+        
+        // Extract unique parts
+        const uniqueParts = [...new Set(data.data.map((t: DUPATemplate) => t.part).filter(Boolean))];
+        setParts(uniqueParts as string[]);
         
         // Extract unique categories
         const cats = [...new Set(data.data.map((t: DUPATemplate) => t.category).filter(Boolean))];
@@ -74,7 +82,7 @@ export default function DUPATemplatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, categoryFilter, statusFilter]);
+  }, [searchTerm, partFilter, categoryFilter, statusFilter]);
 
   useEffect(() => {
     fetchTemplates();
@@ -192,7 +200,7 @@ export default function DUPATemplatesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8" suppressHydrationWarning>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -203,12 +211,6 @@ export default function DUPATemplatesPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={() => setShowGenerateModal(true)}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              ⚡ Generate Defaults
-            </button>
             <Link
               href="/dupa-templates/new"
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -220,7 +222,7 @@ export default function DUPATemplatesPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Search
@@ -231,7 +233,30 @@ export default function DUPATemplatesPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                suppressHydrationWarning
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Part
+              </label>
+              <select
+                value={partFilter}
+                onChange={(e) => {
+                  setPartFilter(e.target.value);
+                  setCategoryFilter(''); // Reset category when part changes
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                suppressHydrationWarning
+              >
+                <option value="">All Parts</option>
+                {parts.sort().map((part) => (
+                  <option key={part} value={part}>
+                    {part}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -242,9 +267,10 @@ export default function DUPATemplatesPage() {
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                suppressHydrationWarning
               >
                 <option value="">All Categories</option>
-                {categories.map((cat) => (
+                {categories.sort().map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
@@ -260,6 +286,7 @@ export default function DUPATemplatesPage() {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                suppressHydrationWarning
               >
                 <option value="all">All Templates</option>
                 <option value="true">Active Only</option>
@@ -300,13 +327,16 @@ export default function DUPATemplatesPage() {
                       <th className="w-64 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Description
                       </th>
-                      <th className="w-28 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Unit
+                      </th>
+                      <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Part
                       </th>
                       <th className="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Category
                       </th>
-                      <th className="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th className="w-28 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Entries
                       </th>
                       <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -320,7 +350,7 @@ export default function DUPATemplatesPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {templates.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-3 py-12 text-center text-gray-500">
+                        <td colSpan={8} className="px-3 py-12 text-center text-gray-500">
                           No templates found. Create your first template to get started.
                         </td>
                       </tr>
@@ -339,6 +369,9 @@ export default function DUPATemplatesPage() {
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-500">
                             {template.unitOfMeasurement}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-500 truncate">
+                            {template.part || '-'}
                           </td>
                           <td className="px-3 py-3 text-sm text-gray-500 truncate">
                             {template.category || '-'}

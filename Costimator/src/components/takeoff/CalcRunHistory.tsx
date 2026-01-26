@@ -14,7 +14,7 @@ interface CalcRunSummary {
     totalRebar?: number;
     totalFormwork?: number;
   };
-  errors?: string[];
+  validationErrors?: string[];
 }
 
 interface CalcRunHistoryProps {
@@ -112,7 +112,7 @@ export default function CalcRunHistory({ projectId }: CalcRunHistoryProps) {
           <div className="divide-y divide-gray-200">
             {calcRuns.map((run) => {
               const isExpanded = expandedRuns.has(run.runId);
-              const hasErrors = run.errors && run.errors.length > 0;
+              const hasErrors = run.validationErrors && run.validationErrors.length > 0;
 
               return (
                 <div key={run.runId} className="hover:bg-gray-50">
@@ -138,7 +138,7 @@ export default function CalcRunHistory({ projectId }: CalcRunHistoryProps) {
                           </span>
                           {hasErrors && (
                             <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                              {run.errors!.length} warning{run.errors!.length !== 1 ? 's' : ''}
+                              {run.validationErrors!.length} warning{run.validationErrors!.length !== 1 ? 's' : ''}
                             </span>
                           )}
                         </div>
@@ -213,7 +213,7 @@ export default function CalcRunHistory({ projectId }: CalcRunHistoryProps) {
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <h5 className="text-sm font-semibold text-gray-700 mb-2">Warnings:</h5>
                         <ul className="space-y-1 text-sm text-gray-600">
-                          {run.errors!.map((error, idx) => (
+                          {run.validationErrors!.map((error, idx) => (
                             <li key={idx} className="flex items-start gap-2">
                               <span className="text-yellow-600">⚠</span>
                               <span>{error}</span>

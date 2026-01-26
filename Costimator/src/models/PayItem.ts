@@ -25,26 +25,22 @@ const PayItemSchema = new Schema<IPayItem>(
       type: String,
       required: false, // Made optional since some pay items don't have divisions
       trim: true,
-      index: true,
     },
     part: {
       type: String,
       required: true,
       trim: true,
-      index: true,
     },
     item: {
       type: String,
       required: false, // Made optional since some pay items don't have items
       trim: true,
-      index: true,
     },
     payItemNumber: {
       type: String,
       required: true,
       unique: true,
       trim: true,
-      index: true,
     },
     description: {
       type: String,
@@ -60,18 +56,15 @@ const PayItemSchema = new Schema<IPayItem>(
       type: String,
       required: false,
       trim: true,
-      index: true,
     },
     category: {
       type: String,
       required: false,
       trim: true,
-      index: true,
     },
     isActive: {
       type: Boolean,
       default: true,
-      index: true,
     },
   },
   {
@@ -81,7 +74,12 @@ const PayItemSchema = new Schema<IPayItem>(
 
 // Indexes for efficient queries
 PayItemSchema.index({ division: 1, part: 1, item: 1 });
-PayItemSchema.index({ description: 'text', payItemNumber: 'text' });
+// Note: payItemNumber index is created by unique: true in schema
+PayItemSchema.index({ part: 1 });
+PayItemSchema.index({ trade: 1 });
+PayItemSchema.index({ category: 1 });
+PayItemSchema.index({ isActive: 1 });
+PayItemSchema.index({ description: 'text' }); // Removed payItemNumber to avoid conflict with unique index
 
 const PayItem = mongoose.models.PayItem || mongoose.model<IPayItem>('PayItem', PayItemSchema);
 

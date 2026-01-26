@@ -4,6 +4,12 @@ import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import VersionStatusBadge from '@/components/versioning/VersionStatusBadge';
+import EstimateList from '@/components/cost-estimates/EstimateList';
+import CreateEstimateModal from '@/components/cost-estimates/CreateEstimateModal';
+import TakeoffViewer from '@/components/takeoff/TakeoffViewer';
+import BOQViewer from '@/components/takeoff/BOQViewer';
+import CalcRunList from '@/components/takeoff/CalcRunList';
+import ProgramOfWorksTab from './components/ProgramOfWorksTab';
 
 interface Project {
   _id: string;
@@ -44,15 +50,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'estimates' | 'takeoff'>('overview');
+  const [activeTakeoffSubTab, setActiveTakeoffSubTab] = useState<'takeoff-report' | 'boq' | 'versions'>('takeoff-report');
   const [estimates, setEstimates] = useState<ProjectEstimate[]>([]);
-  const [loadingEstimates, setLoadingEstimates] = useState(false);
-  const [generatingEstimate, setGeneratingEstimate] = useState(false);
   const [versionSummary, setVersionSummary] = useState<{
-    activeTakeoffVersion?: { versionNumber: number; versionLabel: string; status: string; createdAt: string; boqLineCount: number };
+    activeTakeoffVersion?: { _id: string; versionNumber: number; versionLabel: string; status: string; createdAt: string; boqLineCount: number };
     activeCostEstimate?: { estimateNumber: string; grandTotal: number; cmpdVersion: string; status: string; createdAt: string };
     totalVersions: number;
     totalEstimates: number;
   } | null>(null);
+  
+  // New state for takeoff dashboard
+  const [latestCalcRun, setLatestCalcRun] = useState<any>(null);
+  const [loadingTakeoffData, setLoadingTakeoffData] = useState(false);
+  
+  // Program of Works modal
+  const [showCreateEstimateModal, setShowCreateEstimateModal] = useState(false);
+  const [selectedTakeoffVersionId, setSelectedTakeoffVersionId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProject();
@@ -62,6 +75,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     if (activeTab === 'estimates') {
       fetchEstimates();
+    }
+    if (activeTab === 'takeoff') {
+      fetchLatestTakeoffData();
     }
   }, [activeTab, id]);
 
@@ -88,7 +104,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const fetchEstimates = async () => {
-    setLoadingEstimates(true);
     try {
       const response = await fetch(`/api/projects/${id}/estimates`);
       
@@ -105,8 +120,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       }
     } catch (error) {
       console.error('Failed to fetch estimates:', error);
-    } finally {
-      setLoadingEstimates(false);
     }
   };
 
@@ -132,6 +145,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           
           setVersionSummary({
             activeTakeoffVersion: activeVersion ? {
+              _id: activeVersion._id,
               versionNumber: activeVersion.versionNumber,
               versionLabel: activeVersion.versionLabel,
               status: activeVersion.status,
@@ -155,12 +169,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const fetchLatestTakeoffData = async () => {
+    setLoadingTakeoffData(true);
+    try {
+      // Fetch latest calc run
+      const calcRunRes = await fetch(`/api/projects/${id}/calcruns/latest`);
+      if (calcRunRes.ok) {
+        const calcRunData = await calcRunRes.json();
+        const calcRun = calcRunData.data; // API returns { success: true, data: calcRun }
+        setLatestCalcRun(calcRun);
+      } else {
+        setLatestCalcRun(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch takeoff data:', error);
+      setLatestCalcRun(null);
+    } finally {
+      setLoadingTakeoffData(false);
+    }
+  };
+
   const handleGenerateEstimate = async () => {
-    if (!confirm('Generate a new cost estimate from current BOQ items?')) {
+    if (!confirm('Generate a new program of works from current BOQ items?')) {
       return;
     }
 
-    setGeneratingEstimate(true);
     try {
       const response = await fetch(`/api/projects/${id}/estimates`, {
         method: 'POST',
@@ -187,8 +220,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     } catch (error: any) {
       console.error('Failed to generate estimate:', error);
       alert('Failed to generate estimate: ' + error.message);
-    } finally {
-      setGeneratingEstimate(false);
     }
   };
 
@@ -358,7 +389,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Cost Estimates
+            Program of Works
             {estimates.length > 0 && (
               <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs">
                 {estimates.length}
@@ -544,13 +575,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               )}
             </div>
 
-            {/* Active Cost Estimate */}
+            {/* Active Program of Works */}
             <div className="border border-gray-200 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Active Cost Estimate
+                Active Program of Works
               </h3>
               {versionSummary.activeCostEstimate ? (
                 <div className="space-y-2">
@@ -573,7 +604,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               ) : (
                 <div className="text-sm text-gray-500 italic">
-                  No cost estimates generated yet
+                  No program of works generated yet
                 </div>
               )}
             </div>
@@ -590,149 +621,186 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       )}
 
       {activeTab === 'takeoff' && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="text-center py-8">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Quantity Takeoff Workspace</h3>
-            <p className="text-gray-600 mb-6">
-              Access the quantity takeoff workspace to model structural elements and generate quantities.
-            </p>
-            <Link
-              href={`/takeoff/${id}`}
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-              Open Takeoff Workspace
-            </Link>
+        <div className="space-y-6">
+          {/* Sub-tab Navigation */}
+          <div className="border-b border-gray-200">
+            <nav className="flex gap-2" aria-label="Takeoff sub-tabs">
+              <button
+                onClick={() => setActiveTakeoffSubTab('takeoff-report')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                  activeTakeoffSubTab === 'takeoff-report'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span>📐</span>
+                  <span>Takeoff Report</span>
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTakeoffSubTab('boq')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                  activeTakeoffSubTab === 'boq'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span>📋</span>
+                  <span>Bill of Quantities</span>
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTakeoffSubTab('versions')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                  activeTakeoffSubTab === 'versions'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span>🕐</span>
+                  <span>Version History</span>
+                </span>
+              </button>
+            </nav>
+          </div>
+
+          {/* Sub-tab Content */}
+          <div>
+            {/* Takeoff Report Sub-tab */}
+            {activeTakeoffSubTab === 'takeoff-report' && (
+              <>
+                {loadingTakeoffData ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                    <p className="text-gray-600">Loading takeoff data...</p>
+                  </div>
+                ) : !latestCalcRun ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-12 text-center">
+                    <div className="text-6xl mb-4">📐</div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Generate Your First Takeoff
+                    </h3>
+                    <div className="text-left max-w-2xl mx-auto mb-6 space-y-3">
+                      <p className="text-gray-700 font-medium">Follow these steps to get started:</p>
+                      <ol className="list-decimal list-inside space-y-2 text-gray-600">
+                        <li>Set up your Grid System (coordinate reference)</li>
+                        <li>Define Floor Levels (vertical organization)</li>
+                        <li>Create Element Templates (columns, beams, slabs, etc.)</li>
+                        <li>Place Element Instances on your levels</li>
+                        <li>Generate Takeoff (return to this tab to view results)</li>
+                      </ol>
+                    </div>
+                    <Link
+                      href={`/takeoff/${id}`}
+                      className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      Open Advanced Workspace
+                    </Link>
+                  </div>
+                ) : (
+                  <TakeoffViewer
+                    projectId={id}
+                    onTakeoffGenerated={async () => {
+                      await fetchLatestTakeoffData();
+                    }}
+                  />
+                )}
+              </>
+            )}
+
+            {/* BOQ Sub-tab */}
+            {activeTakeoffSubTab === 'boq' && (
+              <>
+                {loadingTakeoffData ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                    <p className="text-gray-600">Loading BOQ data...</p>
+                  </div>
+                ) : !latestCalcRun ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-12 text-center">
+                    <div className="text-6xl mb-4">⚠️</div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      No Takeoff Data Available
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      You must generate a takeoff first before creating a Bill of Quantities.
+                    </p>
+                    <button
+                      onClick={() => setActiveTakeoffSubTab('takeoff-report')}
+                      className="inline-flex items-center gap-2 bg-yellow-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-yellow-700 transition-all shadow-lg"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Go to Takeoff Report Tab
+                    </button>
+                  </div>
+                ) : (
+                  <BOQViewer
+                    projectId={id}
+                    takeoffLines={latestCalcRun.takeoffLines || []}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Version History Sub-tab */}
+            {activeTakeoffSubTab === 'versions' && (
+              <CalcRunList projectId={id} />
+            )}
+          </div>
+
+          {/* Advanced Workspace Link Card */}
+          <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+            <div className="flex items-start gap-4">
+              <div className="text-3xl">🏗️</div>
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                  Need Advanced Features?
+                </h4>
+                <p className="text-gray-600 mb-4">
+                  The Advanced Workspace provides 3D modeling tools, element libraries, grid systems, 
+                  and interactive quantity calculations for complex takeoff scenarios.
+                </p>
+                <Link
+                  href={`/takeoff/${id}`}
+                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                >
+                  Open Advanced Workspace
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {activeTab === 'estimates' && (
-        <div>
-          {/* Generate Estimate Button */}
-          <div className="mb-6 flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Cost Estimates</h2>
-            <button
-              onClick={handleGenerateEstimate}
-              disabled={generatingEstimate}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {generatingEstimate ? 'Generating...' : '+ Generate New Estimate'}
-            </button>
-          </div>
-
-          {/* Estimates List */}
-          {loadingEstimates ? (
-            <div className="text-center py-8">Loading estimates...</div>
-          ) : estimates.length === 0 ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-              <p className="text-gray-700 mb-4">
-                No cost estimates generated yet.
-              </p>
-              <p className="text-sm text-gray-600 mb-4">
-                First, add BOQ items to this project, then generate a cost estimate.
-              </p>
-              <Link
-                href={`/projects/${id}/boq`}
-                className="text-blue-600 hover:text-blue-800 font-medium"
-              >
-                → Go to Bill of Quantities
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {estimates.map((estimate) => (
-                <div
-                  key={estimate._id}
-                  className="bg-white shadow rounded-lg p-6 border border-gray-200"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold">
-                          Version {estimate.version}
-                        </h3>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            estimate.status === 'approved'
-                              ? 'bg-green-100 text-green-800'
-                              : estimate.status === 'submitted'
-                              ? 'bg-blue-100 text-blue-800'
-                              : estimate.status === 'rejected'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}
-                        </span>
-                        <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                          {estimate.estimateType.charAt(0).toUpperCase() + estimate.estimateType.slice(1)}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                        <div>
-                          <p className="text-sm text-gray-600">Grand Total</p>
-                          <p className="text-lg font-bold text-blue-600">
-                            ₱{estimate.grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Total Items</p>
-                          <p className="text-lg font-semibold">{estimate.totalItems}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Prepared By</p>
-                          <p className="text-sm font-medium">{estimate.preparedBy || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Created</p>
-                          <p className="text-sm">{new Date(estimate.createdAt).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-
-                      {estimate.approvedBy && estimate.approvedDate && (
-                        <div className="bg-green-50 border border-green-200 rounded p-3 text-sm">
-                          <p className="text-green-800">
-                            ✓ Approved by <strong>{estimate.approvedBy}</strong> on{' '}
-                            {new Date(estimate.approvedDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2 ml-4">
-                      {estimate.status === 'draft' && (
-                        <button
-                          onClick={() => handleSubmitEstimate(estimate.version)}
-                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                        >
-                          Submit
-                        </button>
-                      )}
-                      {estimate.status === 'submitted' && (
-                        <button
-                          onClick={() => handleApproveEstimate(estimate.version)}
-                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                        >
-                          Approve
-                        </button>
-                      )}
-                      <Link
-                        href={`/projects/${id}/estimates/${estimate.version}`}
-                        className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
-                      >
-                        View Details
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ProgramOfWorksTab projectId={id} project={project} />
+      )}
+      
+      {showCreateEstimateModal && (
+        <CreateEstimateModal
+          projectId={id}
+          takeoffVersionId={selectedTakeoffVersionId || undefined}
+          onClose={() => {
+            setShowCreateEstimateModal(false);
+            setSelectedTakeoffVersionId(null);
+          }}
+          onSuccess={(estimateId) => {
+            setShowCreateEstimateModal(false);
+            setSelectedTakeoffVersionId(null);
+            router.push(`/cost-estimates/${estimateId}`);
+          }}
+        />
       )}
     </div>
   );

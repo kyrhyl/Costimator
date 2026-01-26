@@ -1,8 +1,31 @@
-import mongoose, { Schema, Model } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
+
+/**
+ * PROJECT ESTIMATE MODEL (CURRENT - Approval Workflow)
+ * 
+ * ✅ CURRENT: Use this model for project-based estimates with approval workflows.
+ * 
+ * This model provides:
+ * - Versioned cost estimates linked to projects
+ * - Multi-step approval workflow (draft → submitted → approved/rejected)
+ * - Rate item-based pricing
+ * - Historical tracking of estimate versions
+ * 
+ * Key Features:
+ * - Status tracking: draft, submitted, approved, rejected
+ * - Version control with effectiveDate
+ * - Approval metadata (preparedBy, approvedBy, dates, comments)
+ * - Supports price comparisons across versions
+ * 
+ * Related Models:
+ * - Project: Parent project reference
+ * - RateItem: Pay item pricing data
+ * - CostEstimate: Alternative takeoff-driven estimation (simpler, no workflow)
+ */
 
 // =============================================
 // ProjectEstimate Model
-// Cost estimates are generated FROM a project's BOQ items
+// Cost estimates generated from a project's BOQ items
 // Supports versioning and approval workflow
 // =============================================
 

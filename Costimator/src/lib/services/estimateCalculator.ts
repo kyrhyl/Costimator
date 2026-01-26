@@ -1,0 +1,341 @@
+/**
+ * ESTIMATE CALCULATOR SERVICE
+ * Processes TakeoffVersion BOQ lines and applies pricing to create estimate lines
+ */
+
+import DUPATemplate from '@/models/DUPATemplate';
+import Material from '@/models/Material';
+import MaterialPrice from '@/models/MaterialPrice';
+import Equipment from '@/models/Equipment';
+import LaborRate from '@/models/LaborRate';
+import { computeHaulingCost, HaulingTemplate } from '@/lib/calc/hauling';
+import { getDPWHMarkupRates } from '@/lib/utils/dpwhMarkups';
+import mongoose from 'mongoose';
+import type { IEstimateLine, ILaborRateSnapshot, ICostSummary } from '@/models/CostEstimate';
+
+interface CalculateEstimateOptions {
+  takeoffVersionId: string | mongoose.Types.ObjectId;
+  location: string;
+  district: string;
+  cmpdVersion?: string;  // When provided, will lookup MaterialPrice instead of Material.basePrice
+  ocmPercentage?: number;  // Optional - will auto-calculate from project cost if not provided
+  cpPercentage?: number;   // Optional - will auto-calculate from project cost if not provided
+  vatPercentage?: number;  // Optional - defaults to 12%
+  haulingConfig?: any;
+  distanceFromOffice?: number;
+  haulingCostPerKm?: number;
+}
+
+interface EstimateResult {
+  estimateLines: IEstimateLine[];
+  laborRateSnapshot: ILaborRateSnapshot;
+  costSummary: ICostSummary;
+  unmappedLines: string[];  // Pay item numbers without DUPA templates
+  usedMarkups: {  // Actual percentages used in calculation
+    ocmPercentage: number;
+    cpPercentage: number;
+    vatPercentage: number;
+  };
+}
+
+// Labor rate designation mapping
+const laborRateMap: Record<string, string> = {
+  'Foreman': 'foreman',
+  'Leadman': 'leadman',
+  'Equipment Operator - Heavy': 'equipmentOperatorHeavy',
+  'Equipment Operator - High Skilled': 'equipmentOperatorHighSkilled',
+  'Equipment Operator - Light Skilled': 'equipmentOperatorLightSkilled',
+  'Driver': 'driver',
+  'Skilled Labor': 'laborSkilled',
+  'Semi-Skilled Labor': 'laborSemiSkilled',
+  'Unskilled Labor': 'laborUnskilled',
+};
+
+/**
+ * Calculate complete estimate from BOQ lines
+ */
+export async function calculateEstimate(
+  boqLines: any[],
+  options: CalculateEstimateOptions
+): Promise<EstimateResult> {
+  
+  // 1. Fetch labor rates for location
+  const laborRates = await LaborRate.findOne({ location: options.location })
+    .sort({ effectiveDate: -1 })
+    .lean();
+  
+  if (!laborRates) {
+    throw new Error(`No labor rates found for location: ${options.location}`);
+  }
+  
+  // 2. Calculate hauling cost per cubic meter
+  let haulingCostPerCuM = 0;
+  if (options.haulingConfig) {
+    // Use advanced hauling calculation with route segments
+    const haulingTemplate: HaulingTemplate = {
+      totalDistanceKm: options.haulingConfig.totalDistance || 0,
+      freeHaulingDistanceKm: options.haulingConfig.freeHaulingDistance || 0,
+      routeSegments: options.haulingConfig.routeSegments || [],
+      equipmentHourlyRatePhp: options.haulingConfig.equipmentRentalRate || 1420,
+      equipmentCapacityCuM: options.haulingConfig.equipmentCapacity || 10
+    };
+    const haulingResult = computeHaulingCost(haulingTemplate);
+    haulingCostPerCuM = haulingResult.costPerCuMPhp;
+  } else if (options.distanceFromOffice && options.haulingCostPerKm) {
+    // Fallback: simple distance × cost calculation
+    haulingCostPerCuM = options.distanceFromOffice * options.haulingCostPerKm;
+  }
+  
+  // 3. Process each BOQ line (first pass - calculate direct costs)
+  const estimateLines: IEstimateLine[] = [];
+  const unmappedLines: string[] = [];
+  let totalDirectCost = 0;
+  
+  for (const boqLine of boqLines) {
+    // Auto-map DUPA template by pay item number
+    const dupaTemplate = await DUPATemplate.findOne({
+      payItemNumber: boqLine.payItemNumber,
+      isActive: true
+    }).lean();
+    
+    if (!dupaTemplate) {
+      // No DUPA found - create placeholder line
+      unmappedLines.push(boqLine.payItemNumber);
+      estimateLines.push({
+        payItemNumber: boqLine.payItemNumber,
+        payItemDescription: boqLine.description || 'No DUPA template found',
+        unit: boqLine.unit || 'LS',
+        quantity: boqLine.quantity || 0,
+        part: boqLine.part || '',
+        dupaNotFound: true,
+        laborCost: 0,
+        equipmentCost: 0,
+        materialCost: 0,
+        minorToolsCost: 0,
+        directCost: 0,
+        ocmCost: 0,
+        cpCost: 0,
+        vatCost: 0,
+        unitPrice: 0,
+        totalAmount: 0,
+        laborItems: [],
+        equipmentItems: [],
+        materialItems: [],
+      });
+      continue;
+    }
+    
+    // 4. Calculate costs for this line (without markups yet)
+    const computed = await computeLineItemDirectCosts(
+      dupaTemplate,
+      boqLine.quantity,
+      laborRates,
+      haulingCostPerCuM,
+      options.cmpdVersion,  // Pass CMPD version for material price lookup
+      options.location      // Pass location for CMPD lookup
+    );
+    
+    totalDirectCost += computed.directCost * boqLine.quantity;
+    
+    // Store temporarily (will add markups in second pass)
+    estimateLines.push({
+      payItemNumber: boqLine.payItemNumber,
+      payItemDescription: dupaTemplate.payItemDescription,
+      unit: dupaTemplate.unitOfMeasurement,
+      quantity: boqLine.quantity,
+      part: dupaTemplate.part || boqLine.part || '',
+      dupaTemplateId: dupaTemplate._id,
+      ...computed,
+      // Markups will be calculated after we know total direct cost
+      ocmCost: 0,
+      cpCost: 0,
+      vatCost: 0,
+      unitPrice: 0,
+      totalAmount: 0,
+    });
+  }
+  
+  // 5. Determine markup percentages based on total direct cost
+  const markupRates = getDPWHMarkupRates(totalDirectCost);
+  const ocmPercent = options.ocmPercentage ?? markupRates.ocm;
+  const cpPercent = options.cpPercentage ?? markupRates.cp;
+  const vatPercent = options.vatPercentage ?? markupRates.vat;
+  
+  console.log(`Total Direct Cost: ₱${totalDirectCost.toLocaleString()}`);
+  console.log(`Applied Markups: OCM ${ocmPercent}%, CP ${cpPercent}%, VAT ${vatPercent}%`);
+  
+  // 6. Apply markups to all lines (second pass)
+  let totalOCM = 0;
+  let totalCP = 0;
+  let totalVAT = 0;
+  
+  for (const line of estimateLines) {
+    if (line.dupaNotFound) continue;
+    
+    // Calculate markups (both OCM and CP on direct cost, NOT cumulative)
+    line.ocmCost = line.directCost * (ocmPercent / 100);
+    line.cpCost = line.directCost * (cpPercent / 100);
+    const subtotal = line.directCost + line.ocmCost + line.cpCost;
+    line.vatCost = subtotal * (vatPercent / 100);
+    line.unitPrice = subtotal + line.vatCost;
+    line.totalAmount = line.unitPrice * line.quantity;
+    
+    totalOCM += line.ocmCost * line.quantity;
+    totalCP += line.cpCost * line.quantity;
+    totalVAT += line.vatCost * line.quantity;
+  }
+  
+  // 7. Calculate totals
+  const subtotalWithMarkup = totalDirectCost + totalOCM + totalCP;
+  const grandTotal = subtotalWithMarkup + totalVAT;
+  
+  return {
+    estimateLines,
+    laborRateSnapshot: {
+      location: options.location,
+      effectiveDate: laborRates.effectiveDate,
+      rates: {
+        foreman: laborRates.foreman,
+        leadman: laborRates.leadman,
+        equipmentOperatorHeavy: laborRates.equipmentOperatorHeavy,
+        equipmentOperatorHighSkilled: laborRates.equipmentOperatorHighSkilled,
+        equipmentOperatorLightSkilled: laborRates.equipmentOperatorLightSkilled,
+        driver: laborRates.driver,
+        laborSkilled: laborRates.laborSkilled,
+        laborSemiSkilled: laborRates.laborSemiSkilled,
+        laborUnskilled: laborRates.laborUnskilled,
+      }
+    },
+    costSummary: {
+      totalDirectCost,
+      totalOCM,
+      totalCP,
+      subtotalWithMarkup,
+      totalVAT,
+      grandTotal,
+      rateItemsCount: estimateLines.length
+    },
+    usedMarkups: {
+      ocmPercentage: ocmPercent,
+      cpPercentage: cpPercent,
+      vatPercentage: vatPercent
+    },
+    unmappedLines
+  };
+}
+
+/**
+ * Compute direct costs for a single line item (without markups)
+ */
+async function computeLineItemDirectCosts(
+  dupaTemplate: any,
+  quantity: number,
+  laborRates: any,
+  haulingCostPerCuM: number,
+  cmpdVersion?: string,
+  location?: string
+) {
+  // Compute labor
+  let laborCost = 0;
+  const laborItems = [];
+  for (const labor of dupaTemplate.laborTemplate || []) {
+    const rateField = laborRateMap[labor.designation];
+    const hourlyRate = laborRates[rateField] || 0;
+    const amount = labor.noOfPersons * labor.noOfHours * hourlyRate;
+    laborCost += amount;
+    laborItems.push({
+      designation: labor.designation,
+      noOfPersons: labor.noOfPersons,
+      noOfHours: labor.noOfHours,
+      hourlyRate,
+      amount
+    });
+  }
+  
+  // Compute equipment
+  let equipmentCost = 0;
+  const equipmentItems = [];
+  for (const equip of dupaTemplate.equipmentTemplate || []) {
+    let hourlyRate = 0;
+    if (equip.equipmentId) {
+      const equipment = await Equipment.findById(equip.equipmentId).lean();
+      hourlyRate = equipment?.hourlyRate || 0;
+    }
+    const amount = equip.noOfUnits * equip.noOfHours * hourlyRate;
+    equipmentCost += amount;
+    equipmentItems.push({
+      equipmentId: equip.equipmentId,
+      description: equip.description,
+      noOfUnits: equip.noOfUnits,
+      noOfHours: equip.noOfHours,
+      hourlyRate,
+      amount
+    });
+  }
+  
+  // Minor tools (10% of labor)
+  const minorToolsCost = laborCost * 0.10;
+  equipmentCost += minorToolsCost;
+  
+  // Compute materials
+  let materialCost = 0;
+  const materialItems = [];
+  for (const mat of dupaTemplate.materialTemplate || []) {
+    let basePrice = 0;
+    
+    // Try CMPD price lookup first if version is provided
+    if (cmpdVersion && location) {
+      const cmpdPrice = await MaterialPrice.findOne({
+        materialCode: mat.materialCode,
+        cmpd_version: cmpdVersion,
+        location: location,
+        isActive: true
+      }).lean();
+      
+      if (cmpdPrice) {
+        basePrice = cmpdPrice.unitCost;
+      }
+    }
+    
+    // Fallback to Material.basePrice if no CMPD price found
+    if (basePrice === 0) {
+      const material = await Material.findOne({ materialCode: mat.materialCode }).lean();
+      basePrice = material?.basePrice || 0;
+    }
+    
+    let unitCost = basePrice;
+    
+    // Add hauling if applicable
+    const material = await Material.findOne({ materialCode: mat.materialCode }).lean();
+    if (material?.includeHauling !== false && haulingCostPerCuM > 0) {
+      unitCost += haulingCostPerCuM;
+    }
+    
+    const amount = mat.quantity * unitCost;
+    materialCost += amount;
+    materialItems.push({
+      materialCode: mat.materialCode || '',
+      description: mat.description,
+      unit: mat.unit,
+      quantity: mat.quantity,
+      basePrice,
+      haulingCost: material?.includeHauling !== false ? haulingCostPerCuM : 0,
+      unitCost,
+      amount
+    });
+  }
+  
+  // Direct cost
+  const directCost = laborCost + equipmentCost + materialCost;
+  
+  return {
+    laborCost,
+    equipmentCost,
+    materialCost,
+    minorToolsCost,
+    directCost,
+    laborItems,
+    equipmentItems,
+    materialItems
+  };
+}

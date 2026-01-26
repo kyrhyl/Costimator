@@ -74,6 +74,7 @@ export interface IDUPATemplate extends Document {
   minorToolsPercentage: number;
   
   // Template metadata
+  part?: string;                // e.g., "PART C", "PART D" (from PayItem)
   category?: string;
   specification?: string;
   notes?: string;
@@ -139,6 +140,10 @@ const dupaTemplateSchema = new Schema<IDUPATemplate>(
       type: Number,
       default: 10
     },
+    part: {
+      type: String,
+      default: ''
+    },
     category: {
       type: String,
       default: ''
@@ -163,6 +168,7 @@ const dupaTemplateSchema = new Schema<IDUPATemplate>(
 
 // Indexes
 dupaTemplateSchema.index({ payItemNumber: 1 });
+dupaTemplateSchema.index({ part: 1 });
 dupaTemplateSchema.index({ category: 1 });
 dupaTemplateSchema.index({ isActive: 1 });
 

@@ -6,7 +6,6 @@ import Link from 'next/link';
 import ElementTemplatesEditor from '@/components/takeoff/ElementTemplatesEditor';
 import TakeoffViewer from '@/components/takeoff/TakeoffViewer';
 import CalcRunHistory from '@/components/takeoff/CalcRunHistory';
-import SchedulesManager from '@/components/takeoff/SchedulesManager';
 import GridEditorWrapper from './components/GridEditorWrapper';
 import LevelsEditorWrapper from './components/LevelsEditorWrapper';
 import ElementInstancesWrapper from './components/ElementInstancesWrapper';

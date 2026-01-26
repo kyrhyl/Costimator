@@ -93,9 +93,8 @@ export async function POST(
         allTakeoffLines.push(...finishesResult.takeoffLines);
         errors.push(...finishesResult.errors);
 
-        totalFloorArea += finishesResult.summary.totalFloorArea;
-        totalWallArea += finishesResult.summary.totalWallArea;
-        totalCeilingArea += finishesResult.summary.totalCeilingArea;
+        // Finishes calculation removed - these variables are tracked but not currently used
+        // totalFloorArea, totalWallArea, totalCeilingArea, totalRoofArea
 
         console.log(`✓ Finishes calculated: ${finishesResult.takeoffLines.length} takeoff lines`);
       } catch (err) {
@@ -115,7 +114,7 @@ export async function POST(
         allTakeoffLines.push(...roofingResult.takeoffLines);
         errors.push(...roofingResult.errors);
 
-        totalRoofArea += roofingResult.summary.totalRoofArea_m2;
+        // Roofing calculation removed - totalRoofArea tracked but not currently used
 
         console.log(`✓ Roofing calculated: ${roofingResult.takeoffLines.length} takeoff lines`);
       } catch (err) {

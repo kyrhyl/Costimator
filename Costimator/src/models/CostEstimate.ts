@@ -1,9 +1,22 @@
 import mongoose, { Schema, Model, Document } from 'mongoose';
 
 /**
- * COST ESTIMATE MODEL
- * Applies pricing to a takeoff version using specific rates and CMPD version
- * Supports multiple estimates per takeoff for price comparison scenarios
+ * COST ESTIMATE MODEL (CURRENT - Takeoff-Driven)
+ * 
+ * ✅ CURRENT: Use this model for takeoff-driven cost estimation workflows.
+ * 
+ * This model applies DPWH-compliant pricing to a TakeoffVersion by:
+ * - Linking BOQ items to DUPA templates via pay item numbers
+ * - Instantiating DUPAs with location-specific labor/equipment/material rates
+ * - Applying CMPD version-specific material prices
+ * - Calculating markups (OCM, CP, VAT) based on total direct cost
+ * 
+ * Supports multiple estimates per takeoff for price comparison scenarios.
+ * 
+ * Related Models:
+ * - TakeoffVersion: Source BOQ data from structural quantity takeoff
+ * - DUPATemplate: Unit price analysis templates for DPWH pay items
+ * - ProjectEstimate: Versioned estimates with approval workflow (alternative)
  */
 
 // ====================================
@@ -26,6 +39,81 @@ export interface IPriceDelta {
   currentGrandTotal: number;
   delta: number;
   deltaPercentage: number;
+}
+
+// Estimate Line Interfaces
+export interface IComputedLabor {
+  designation: string;
+  noOfPersons: number;
+  noOfHours: number;
+  hourlyRate: number;  // SNAPSHOT
+  amount: number;
+}
+
+export interface IComputedEquipment {
+  equipmentId?: mongoose.Types.ObjectId;
+  description: string;
+  noOfUnits: number;
+  noOfHours: number;
+  hourlyRate: number;  // SNAPSHOT
+  amount: number;
+}
+
+export interface IComputedMaterial {
+  materialCode: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  basePrice: number;      // SNAPSHOT
+  haulingCost: number;    // SNAPSHOT
+  unitCost: number;       // basePrice + haulingCost
+  amount: number;
+}
+
+export interface IEstimateLine {
+  // BOQ source
+  payItemNumber: string;
+  payItemDescription: string;
+  unit: string;
+  quantity: number;
+  part: string;  // "C", "D", "E", "F", "G"
+  
+  // DUPA Template reference
+  dupaTemplateId?: mongoose.Types.ObjectId;
+  dupaNotFound?: boolean;  // Flag if no DUPA found
+  
+  // Computed costs (from DUPA instantiation)
+  laborCost: number;
+  equipmentCost: number;
+  materialCost: number;
+  minorToolsCost: number;
+  directCost: number;
+  ocmCost: number;
+  cpCost: number;
+  vatCost: number;
+  unitPrice: number;
+  totalAmount: number;
+  
+  // Detailed breakdown (rate snapshots)
+  laborItems: IComputedLabor[];
+  equipmentItems: IComputedEquipment[];
+  materialItems: IComputedMaterial[];
+}
+
+export interface ILaborRateSnapshot {
+  location: string;
+  effectiveDate: Date;
+  rates: {
+    foreman?: number;
+    leadman?: number;
+    equipmentOperatorHeavy?: number;
+    equipmentOperatorHighSkilled?: number;
+    equipmentOperatorLightSkilled?: number;
+    driver?: number;
+    laborSkilled?: number;
+    laborSemiSkilled?: number;
+    laborUnskilled?: number;
+  };
 }
 
 export interface ICostEstimate extends Document {
@@ -54,6 +142,10 @@ export interface ICostEstimate extends Document {
   haulingCostPerKm?: number;
   distanceFromOffice?: number;
   haulingConfig?: any;
+  
+  // Estimate Lines (Computed BOQ with pricing)
+  estimateLines: IEstimateLine[];
+  laborRateSnapshot?: ILaborRateSnapshot;
   
   // Status & Workflow
   status: 'draft' | 'submitted' | 'approved' | 'rejected';
@@ -110,6 +202,57 @@ const PriceDeltaSchema = new Schema({
   deltaPercentage: { type: Number, required: true },
 }, { _id: false });
 
+const ComputedLaborSchema = new Schema({
+  designation: { type: String, required: true },
+  noOfPersons: { type: Number, required: true },
+  noOfHours: { type: Number, required: true },
+  hourlyRate: { type: Number, required: true },
+  amount: { type: Number, required: true },
+}, { _id: false });
+
+const ComputedEquipmentSchema = new Schema({
+  equipmentId: { type: Schema.Types.ObjectId, ref: 'Equipment' },
+  description: { type: String, required: true },
+  noOfUnits: { type: Number, required: true },
+  noOfHours: { type: Number, required: true },
+  hourlyRate: { type: Number, required: true },
+  amount: { type: Number, required: true },
+}, { _id: false });
+
+const ComputedMaterialSchema = new Schema({
+  materialCode: { type: String, required: false, default: 'UNKNOWN' },  // Optional: Some materials may not have codes
+  description: { type: String, required: true },
+  unit: { type: String, required: true },
+  quantity: { type: Number, required: true },
+  basePrice: { type: Number, required: true },
+  haulingCost: { type: Number, required: true },
+  unitCost: { type: Number, required: true },
+  amount: { type: Number, required: true },
+}, { _id: false });
+
+const EstimateLineSchema = new Schema({
+  payItemNumber: { type: String, required: true },
+  payItemDescription: { type: String, required: true },
+  unit: { type: String, required: true },
+  quantity: { type: Number, required: true, min: 0 },
+  part: { type: String, required: true },
+  dupaTemplateId: { type: Schema.Types.ObjectId, ref: 'DUPATemplate' },
+  dupaNotFound: { type: Boolean, default: false },
+  laborCost: { type: Number, default: 0 },
+  equipmentCost: { type: Number, default: 0 },
+  materialCost: { type: Number, default: 0 },
+  minorToolsCost: { type: Number, default: 0 },
+  directCost: { type: Number, default: 0 },
+  ocmCost: { type: Number, default: 0 },
+  cpCost: { type: Number, default: 0 },
+  vatCost: { type: Number, default: 0 },
+  unitPrice: { type: Number, default: 0 },
+  totalAmount: { type: Number, default: 0 },
+  laborItems: { type: [ComputedLaborSchema], default: [] },
+  equipmentItems: { type: [ComputedEquipmentSchema], default: [] },
+  materialItems: { type: [ComputedMaterialSchema], default: [] },
+}, { _id: false });
+
 // ====================================
 // MAIN SCHEMA
 // ====================================
@@ -126,7 +269,7 @@ const CostEstimateSchema = new Schema<ICostEstimate>(
     takeoffVersionId: { 
       type: Schema.Types.ObjectId, 
       ref: 'TakeoffVersion', 
-      required: true,
+      required: false,  // Optional: BOQ Database source doesn't have takeoff version
       index: true 
     },
     
@@ -213,6 +356,16 @@ const CostEstimateSchema = new Schema<ICostEstimate>(
       min: 0
     },
     haulingConfig: {
+      type: Schema.Types.Mixed,
+      default: null
+    },
+    
+    // Estimate Lines (Computed BOQ with pricing)
+    estimateLines: {
+      type: [EstimateLineSchema],
+      default: []
+    },
+    laborRateSnapshot: {
       type: Schema.Types.Mixed,
       default: null
     },

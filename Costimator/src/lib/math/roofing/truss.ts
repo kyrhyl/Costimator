@@ -73,13 +73,6 @@ export interface TrussResult {
 }
 
 /**
- * Calculate rise from span and pitch
- */
-function calculateRise(span_mm: number, pitch_deg: number): number {
-  return (span_mm / 2) * Math.tan(pitch_deg * Math.PI / 180);
-}
-
-/**
  * Calculate member length between two points
  */
 function calculateLength(dx_mm: number, dy_mm: number): number {

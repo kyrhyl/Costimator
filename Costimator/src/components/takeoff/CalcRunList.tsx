@@ -181,9 +181,9 @@ export default function CalcRunList({ projectId }: CalcRunListProps) {
                   </div>
                 </div>
 
-                {run.errors && run.errors.length > 0 && (
+                {run.validationErrors && run.validationErrors.length > 0 && (
                   <div className="mt-2 text-xs text-yellow-700 bg-yellow-50 p-2 rounded">
-                    {run.errors.length} warning{run.errors.length !== 1 ? 's' : ''}
+                    {run.validationErrors.length} warning{run.validationErrors.length !== 1 ? 's' : ''}
                   </div>
                 )}
               </div>
@@ -268,12 +268,12 @@ export default function CalcRunList({ projectId }: CalcRunListProps) {
               </div>
 
               {/* Errors/Warnings */}
-              {selectedRun.errors && selectedRun.errors.length > 0 && (
+              {selectedRun.validationErrors && selectedRun.validationErrors.length > 0 && (
                 <div>
                   <h3 className="font-semibold mb-3">Warnings</h3>
                   <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
                     <ul className="text-sm text-yellow-800 space-y-1">
-                      {selectedRun.errors.map((err: string, idx: number) => (
+                      {selectedRun.validationErrors.map((err: string, idx: number) => (
                         <li key={idx}>• {err}</li>
                       ))}
                     </ul>

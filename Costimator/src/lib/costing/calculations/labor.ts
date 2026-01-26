@@ -25,7 +25,7 @@ export interface ILaborEntry {
  * ];
  * const cost = computeLaborCost(labor); // 1766.80
  */
-export function computeLaborCost(laborEntries: ILaborEntry[]): number {
+export function computeLaborCost(laborEntries: ILaborEntry[] | any[]): number {
   return laborEntries.reduce((total, entry) => {
     const amount = entry.noOfPersons * entry.noOfHours * entry.hourlyRate;
     return total + amount;

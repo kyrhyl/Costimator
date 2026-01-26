@@ -22,7 +22,7 @@ interface CalcRun {
     takeoffLineCount: number;
     boqLineCount: number;
   };
-  errors?: string[];
+  validationErrors?: string[]; // Renamed from 'errors' to avoid Mongoose reserved keyword
 }
 
 export default function BOQViewerWrapper({ projectId }: BOQViewerWrapperProps) {
@@ -54,13 +54,14 @@ export default function BOQViewerWrapper({ projectId }: BOQViewerWrapperProps) {
         throw new Error('Failed to load calculation results');
       }
 
-      const data: CalcRun = await res.json();
+      const response = await res.json();
+      const data: CalcRun = response.data;
       
       if (data.status === 'completed' && data.takeoffLines) {
         setTakeoffLines(data.takeoffLines);
         setHasCalcRun(true);
       } else if (data.status === 'failed') {
-        setError('Last calculation run failed: ' + (data.errors?.join(', ') || 'Unknown error'));
+        setError('Last calculation run failed: ' + (data.validationErrors?.join(', ') || 'Unknown error'));
         setHasCalcRun(false);
       } else if (data.status === 'running') {
         setError('Calculation is still running. Please wait...');

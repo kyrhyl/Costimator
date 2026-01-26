@@ -4,7 +4,8 @@
  */
 
 export interface IEquipmentEntry {
-  description: string;       // Renamed from nameAndCapacity for consistency
+  description: string;           // Equipment name/description (preferred field name)
+  nameAndCapacity?: string;      // Backward compatibility alias (RateItem model uses this)
   noOfUnits: number;
   noOfHours: number;
   hourlyRate: number;
@@ -17,7 +18,7 @@ export interface IEquipmentEntry {
  * Formula: Σ(noOfUnits × noOfHours × hourlyRate)
  * 
  * Special case: "Minor Tools" is typically 10% of labor cost
- * If description includes "Minor Tools", it should be calculated
+ * If description/nameAndCapacity includes "Minor Tools", it should be calculated
  * separately as 10% of labor cost.
  * 
  * @param equipmentEntries - Array of equipment entries
@@ -38,12 +39,15 @@ export interface IEquipmentEntry {
  * const cost = computeEquipmentCost(equipmentWithTools, 50000); // 5000 (10% of labor)
  */
 export function computeEquipmentCost(
-  equipmentEntries: IEquipmentEntry[],
+  equipmentEntries: IEquipmentEntry[] | any[],  // Accept any[] for backward compatibility
   laborCost?: number
 ): number {
   return equipmentEntries.reduce((total, entry) => {
+    // Get description field (support both field names for backward compatibility)
+    const desc = entry.description || entry.nameAndCapacity || '';
+    
     // Check if this is "Minor Tools" entry
-    const isMinorTools = entry.description.toLowerCase().includes('minor tools');
+    const isMinorTools = desc.toLowerCase().includes('minor tools');
     
     if (isMinorTools && laborCost !== undefined) {
       // Minor Tools = 10% of Labor Cost (DPWH standard)
@@ -94,8 +98,11 @@ export function computeMinorToolsCost(
  */
 export function computeTotalEquipmentHours(equipmentEntries: IEquipmentEntry[]): number {
   return equipmentEntries.reduce((total, entry) => {
+    // Get description field (support both field names)
+    const desc = entry.description || entry.nameAndCapacity || '';
+    
     // Skip minor tools entries
-    const isMinorTools = entry.description.toLowerCase().includes('minor tools');
+    const isMinorTools = desc.toLowerCase().includes('minor tools');
     if (isMinorTools) return total;
     
     return total + (entry.noOfUnits * entry.noOfHours);
@@ -109,5 +116,6 @@ export function computeTotalEquipmentHours(equipmentEntries: IEquipmentEntry[]):
  * @returns True if this is a minor tools entry
  */
 export function isMinorToolsEntry(entry: IEquipmentEntry): boolean {
-  return entry.description.toLowerCase().includes('minor tools');
+  const desc = entry.description || entry.nameAndCapacity || '';
+  return desc.toLowerCase().includes('minor tools');
 }

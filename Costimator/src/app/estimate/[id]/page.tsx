@@ -13,7 +13,7 @@ interface IBOQLine {
   partDescription?: string;
   division?: string;
   payItemNumber?: string;
-  unitRate?: number;
+  unitPrice?: number;
   totalAmount?: number;
   materialCost?: number;
   laborCost?: number;
@@ -333,16 +333,16 @@ export default function EstimateDetailPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Pay Item</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">Unit</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Quantity</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Unit Rate</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Unit Price</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {estimate.boqLines.map((line, index) => {
-                  const unitRate = viewMode === 'submitted' 
-                    ? line.breakdown?.totalSubmitted || line.unitRate || 0
-                    : line.breakdown?.totalEvaluated || line.unitRate || 0;
-                  const amount = unitRate * line.quantity;
+                  const unitPrice = viewMode === 'submitted' 
+                    ? line.breakdown?.totalSubmitted || line.unitPrice || 0
+                    : line.breakdown?.totalEvaluated || line.unitPrice || 0;
+                  const amount = unitPrice * line.quantity;
 
                   return (
                     <tr key={index} className="hover:bg-gray-50">
@@ -358,7 +358,7 @@ export default function EstimateDetailPage() {
                       <td className="px-4 py-3 text-sm text-gray-600">{line.payItemNumber || '-'}</td>
                       <td className="px-4 py-3 text-sm text-center text-gray-700">{line.unit}</td>
                       <td className="px-4 py-3 text-sm text-right font-medium">{line.quantity.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-medium">{formatCurrency(unitRate)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-medium">{formatCurrency(unitPrice)}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">{formatCurrency(amount)}</td>
                     </tr>
                   );

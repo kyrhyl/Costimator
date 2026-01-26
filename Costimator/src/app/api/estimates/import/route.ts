@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
           division: line.division,
           rateItemId: rateItem._id,
           payItemNumber: rateItem.payItemNumber,
-          unitRate: estimate.unitRate,
+          unitPrice: estimate.unitPrice,
           totalAmount: estimate.totalAmount,
           materialCost,
           laborCost,
@@ -156,8 +156,8 @@ export async function POST(request: NextRequest) {
       data: estimate,
       summary: {
         totalLines: processedLines.length,
-        linesWithPricing: processedLines.filter(l => l.unitRate).length,
-        linesWithoutPricing: processedLines.filter(l => !l.unitRate).length
+        linesWithPricing: processedLines.filter(l => l.unitPrice).length,
+        linesWithoutPricing: processedLines.filter(l => !l.unitPrice).length
       }
     }, { status: 201 });
     

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { generateTruss, calculateTrussQuantity, calculateTotalTrussQuantities, type TrussType, type TrussParameters, type TrussResult, type PlateThickness } from '@/lib/math/roofing/truss';
-import { calculateRoofFraming, roofingMaterials, purlinSections, DEFAULT_DPWH_MAPPINGS, type FramingParameters, type FramingResult, type BracingConfiguration } from '@/lib/math/roofing/framing';
+import { generateTruss, calculateTrussQuantity, type TrussType, type TrussParameters, type TrussResult } from '@/lib/math/roofing/truss';
+import { calculateRoofFraming, roofingMaterials, purlinSections, DEFAULT_DPWH_MAPPINGS, type FramingParameters, type FramingResult } from '@/lib/math/roofing/framing';
 import type { DPWHItemMapping } from '@/types';
 import TrussVisualization from './TrussVisualization';
 import FramingPlanVisualization from './FramingPlanVisualization';

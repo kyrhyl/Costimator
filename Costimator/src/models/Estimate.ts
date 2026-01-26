@@ -1,5 +1,18 @@
 import mongoose, { Schema, Model } from 'mongoose';
 
+/**
+ * ESTIMATE MODEL (LEGACY)
+ * 
+ * ⚠️ LEGACY: This model is for direct BOQ import/manipulation workflows.
+ * 
+ * For new development, prefer:
+ * - CostEstimate: Takeoff-driven estimates with CMPD pricing and DUPA templates
+ * - ProjectEstimate: Versioned estimates with approval workflow
+ * 
+ * This model is maintained for backward compatibility with the import/export
+ * BOQ functionality and standalone estimate creation without takeoff data.
+ */
+
 // =============================================
 // BOQLine Interface & Schema
 // =============================================
@@ -19,8 +32,8 @@ export interface IBOQLine {
   payItemNumber?: string;          // Reference to RateItem.payItemNumber
   
   // Computed Costs (populated during estimation)
-  unitRate?: number;               // Final unit rate from pricing engine
-  totalAmount?: number;            // quantity × unitRate
+  unitPrice?: number;               // Final unit price from pricing engine
+  totalAmount?: number;            // quantity × unitPrice
   
   // Cost breakdown by component
   materialCost?: number;
@@ -57,7 +70,7 @@ const boqLineSchema = new Schema<IBOQLine>({
   rateItemId: { type: Schema.Types.ObjectId, ref: 'RateItem' },
   payItemNumber: { type: String },
   
-  unitRate: { type: Number },
+  unitPrice: { type: Number },
   totalAmount: { type: Number },
   materialCost: { type: Number },
   laborCost: { type: Number },

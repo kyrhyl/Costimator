@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         // Calculate default output per hour based on labor
         // Simple heuristic: sum of (persons × hours) from labor config
         const defaultOutputPerHour = defaultLaborTemplate.reduce(
-          (sum, labor) => sum + (labor.noOfPersons * labor.noOfHours), 
+          (sum: number, labor: any) => sum + (labor.noOfPersons * labor.noOfHours), 
           0
         ) || 1;
 
@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
           minorToolsPercentage: 10,
           
           // Metadata
+          part: payItem.part || '',
           category: payItem.category || payItem.trade || 'General',
           specification: `Auto-generated DUPA template for ${payItem.payItemNumber}`,
           notes: 'Default labor configuration applied. Please customize equipment and materials as needed.',

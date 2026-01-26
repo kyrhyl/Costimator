@@ -40,7 +40,7 @@ const CMPDImportSchema = z.object({
 /**
  * Parse CSV/Excel file buffer to JSON rows
  */
-function parseFileBuffer(buffer: Buffer, filename: string): any[] {
+function parseFileBuffer(buffer: Buffer): any[] {
   try {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
     // Parse file
     let rows: any[];
     try {
-      rows = parseFileBuffer(buffer, filename);
+      rows = parseFileBuffer(buffer);
     } catch (error: any) {
       return NextResponse.json(
         { success: false, error: error.message },

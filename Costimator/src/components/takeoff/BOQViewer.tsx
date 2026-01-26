@@ -5,7 +5,7 @@ import type { BOQLine, TakeoffLine } from '@/types';
 import { classifyDPWHItem, sortDPWHParts } from '@/lib/dpwhClassification';
 import { exportBOQToCostEstimate, downloadAsJSON, downloadAsCSV } from '@/lib/exportBOQToCostEstimate';
 import { computeBOQItemCost } from '@/lib/costing';
-import { recalculateCostsOnQuantityChange } from '@/lib/costing/services/real-time-costing';
+import SaveBOQModal from './SaveBOQModal';
 
 interface BOQViewerProps {
   projectId: string;
@@ -62,12 +62,17 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
    const [projectInfo, setProjectInfo] = useState<{ district?: string; cmpdVersion?: string } | null>(null);
    const [calcRuns, setCalcRuns] = useState<CalcRunListItem[]>([]);
    const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-   const [showCalcRunSelector, setShowCalcRunSelector] = useState(false);
+   
+   // Save BOQ modal state
+   const [showSaveModal, setShowSaveModal] = useState(false);
+   const [hasExistingBOQ, setHasExistingBOQ] = useState(false);
+   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   // Load calc runs and latest BOQ on mount
   useEffect(() => {
     loadCalcRuns();
     fetchProjectInfo();
+    checkExistingBOQ();
   }, [projectId]);
 
   const loadCalcRuns = async () => {
@@ -152,6 +157,54 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
     }
   };
 
+  // Check if existing BOQ data exists in database
+  const checkExistingBOQ = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/boq/save`);
+      if (res.ok) {
+        const result = await res.json();
+        setHasExistingBOQ(result.hasBoq || false);
+      }
+    } catch (err) {
+      console.error('Failed to check existing BOQ:', err);
+    }
+  };
+
+  // Save BOQ to database
+  const handleSaveBOQ = async (action: 'update' | 'version', versionName?: string) => {
+    if (!currentRunId) {
+      throw new Error('No BOQ data to save. Please generate BOQ first.');
+    }
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/boq/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calcRunId: currentRunId,
+          action,
+          versionName
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save BOQ');
+      }
+
+      const result = await res.json();
+      setSaveSuccess(result.message || 'BOQ saved successfully');
+      setHasExistingBOQ(true);
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setSaveSuccess(null), 5000);
+      
+      return result;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   const generateBOQ = async () => {
     if (!selectedRunId) {
       setError('Please select a quantity takeoff run first');
@@ -215,8 +268,16 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
     setBoqLines(prevLines => {
       return prevLines.map(line => {
         if (line.id === lineId) {
-          // Use real-time costing service to recalculate
-          return recalculateCostsOnQuantityChange(line, newQuantity);
+          // Recalculate total amount based on new quantity
+          if (!line.costingEnabled || !line.totalUnitCost) {
+            return { ...line, quantity: newQuantity };
+          }
+          const totalAmount = line.totalUnitCost * newQuantity;
+          return {
+            ...line,
+            quantity: newQuantity,
+            totalAmount
+          };
         }
         return line;
       });
@@ -687,6 +748,12 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
           </div>
         )}
         
+        {saveSuccess && (
+          <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-4">
+            <p className="text-sm text-green-800">{saveSuccess}</p>
+          </div>
+        )}
+        
         {warnings.length > 0 && (
           <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4">
             <p className="text-sm font-medium text-yellow-800 mb-2">Warnings:</p>
@@ -743,6 +810,18 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {loading ? 'Applying Costs...' : 'Apply Demo Costs'}
+              </button>
+            )}
+            {boqLines.length > 0 && (
+              <button
+                onClick={() => setShowSaveModal(true)}
+                disabled={loading}
+                className="px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 font-medium flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                Save BOQ to Database
               </button>
             )}
             <button
@@ -1196,6 +1275,14 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
           </div>
         </div>
       )}
+      
+      {/* Save BOQ Modal */}
+      <SaveBOQModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onSave={handleSaveBOQ}
+        hasExistingBOQ={hasExistingBOQ}
+      />
     </div>
   );
 }

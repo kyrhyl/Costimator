@@ -1,5 +1,5 @@
 import mongoose, { Schema, Model } from 'mongoose';
-import type { CalcRun, CalcRunStatus, CalcRunSummary, TakeoffLine, BOQLine } from '@/types';
+import type { CalcRun, CalcRunSummary, TakeoffLine, BOQLine } from '@/types';
 
 const TakeoffLineSchema = new Schema<TakeoffLine>({
   id: { type: String, required: true },
@@ -75,7 +75,7 @@ const CalcRunSchema = new Schema<CalcRun>(
     summary: CalcRunSummarySchema,
     takeoffLines: [TakeoffLineSchema],
     boqLines: [BOQLineSchema],
-    errors: [String],
+    validationErrors: [String], // Renamed from 'errors' to avoid Mongoose reserved keyword
   },
   {
     timestamps: true,

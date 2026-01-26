@@ -1,10 +1,10 @@
 import { IRateItem } from '@/models/RateItem';
 
-// Import calculation modules
-import { computeLaborCost } from './labor';
-import { computeEquipmentCost } from './equipment';
-import { computeMaterialCost } from './materials';
-import { computeAddOns, type AddOnResult } from './addons';
+// Import calculation modules from lib/costing (consolidated)
+import { computeLaborCost } from '@/lib/costing/calculations/labor';
+import { computeEquipmentCost } from '@/lib/costing/calculations/equipment';
+import { computeMaterialCost } from '@/lib/costing/calculations/materials';
+import { computeAddOns, type AddOnResult } from '@/lib/costing/calculations/addons';
 
 // =============================================
 // Type Definitions
@@ -42,8 +42,8 @@ export interface CostBreakdown {
 
 export interface LineItemEstimate {
   quantity: number;
-  unitRate: number;               // Per unit rate (using Submitted or Evaluated)
-  totalAmount: number;            // quantity × unitRate
+  unitPrice: number;               // Per unit price (using Submitted or Evaluated)
+  totalAmount: number;            // quantity × unitPrice
   breakdown: CostBreakdown;
 }
 
@@ -147,15 +147,15 @@ export function computeLineItemEstimate(
 ): LineItemEstimate {
   const breakdown = computeRateItemCosts(rateItem);
   
-  // Select which unit rate to use
-  const unitRate = useEvaluated ? breakdown.totalEvaluated : breakdown.totalSubmitted;
+  // Select which unit price to use
+  const unitPrice = useEvaluated ? breakdown.totalEvaluated : breakdown.totalSubmitted;
   
   // Calculate total amount
-  const totalAmount = quantity * unitRate;
+  const totalAmount = quantity * unitPrice;
   
   return {
     quantity,
-    unitRate,
+    unitPrice,
     totalAmount,
     breakdown
   };

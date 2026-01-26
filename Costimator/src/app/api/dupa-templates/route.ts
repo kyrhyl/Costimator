@@ -70,6 +70,12 @@ export async function GET(request: Request) {
       ];
     }
     
+    // Filter by part
+    const part = searchParams.get('part');
+    if (part) {
+      filter.part = part;
+    }
+    
     // Filter by category
     const category = searchParams.get('category');
     if (category) {

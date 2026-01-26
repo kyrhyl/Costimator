@@ -117,7 +117,7 @@ export async function PUT(
           division: line.division,
           rateItemId: rateItem._id,
           payItemNumber: rateItem.payItemNumber,
-          unitRate: estimate.unitRate,
+          unitPrice: estimate.unitPrice,
           totalAmount: estimate.totalAmount,
           materialCost,
           laborCost,

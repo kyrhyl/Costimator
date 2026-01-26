@@ -27,7 +27,6 @@ export interface TimePhasingConfig {
 export function calculateWorkingDays(
   startDate: Date,
   endDate: Date,
-  workingDaysPerWeek: number = 6,
   holidays: Date[] = [],
   rainyDaysPerMonth: number = 0
 ): number {
@@ -86,7 +85,6 @@ export function generateMonthlyTimePhasing(
     const workingDays = calculateWorkingDays(
       periodStart,
       periodEnd,
-      config.workingDaysPerWeek,
       config.holidays,
       config.rainyDaysPerMonth
     );

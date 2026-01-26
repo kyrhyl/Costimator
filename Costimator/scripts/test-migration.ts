@@ -13,7 +13,7 @@ import dbConnect from '../src/lib/db/connect';
 import Project from '../src/models/Project';
 import TakeoffVersion from '../src/models/TakeoffVersion';
 import CostEstimate from '../src/models/CostEstimate';
-import { getMigrationStatus } from '../src/lib/backward-compatibility';
+// import { getMigrationStatus } from '../src/lib/backward-compatibility';  // ARCHIVED
 
 interface TestResult {
   testName: string;
@@ -42,12 +42,12 @@ async function testMigrationStatus() {
       return;
     }
     
-    const status = await getMigrationStatus(project._id.toString());
+    // const status = await getMigrationStatus(project._id.toString());  // ARCHIVED
     
     addResult(
       'Migration Status Check',
       true,
-      `Project "${(project as any).projectName}" - Migrated: ${status.isMigrated}, Versions: ${status.versionCount}, Estimates: ${status.estimateCount}`
+      `Project "${(project as any).projectName}" - Migration status check disabled (backward-compatibility archived)`
     );
     
   } catch (error: any) {

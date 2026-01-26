@@ -85,8 +85,8 @@ export default function TakeoffViewer({ projectId, onTakeoffGenerated }: Takeoff
       setSummary(data.summary || null);
       setLastCalculated(new Date().toISOString());
       setHasCalcRun(true);
-      if (data.errors && data.errors.length > 0) {
-        setErrors(data.errors);
+      if (data.validationErrors && data.validationErrors.length > 0) {
+        setErrors(data.validationErrors);
       }
       
       // Call the callback to pass takeoff lines to parent

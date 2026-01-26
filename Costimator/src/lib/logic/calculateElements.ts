@@ -34,7 +34,6 @@ import {
   getDPWHRebarItem,
   getRebarGrade,
 } from '@/lib/math/rebar';
-import type { RebarOutput } from '@/types';
 // Note: uuidv4 removed - using predictable IDs instead
 
 export interface ElementsCalculationInput {

@@ -58,6 +58,5 @@ const EquipmentSchema = new Schema<IEquipment>(
 
 // Index for faster searches
 EquipmentSchema.index({ description: 1 });
-EquipmentSchema.index({ no: 1 });
 
 export default mongoose.models.Equipment || mongoose.model<IEquipment>('Equipment', EquipmentSchema);

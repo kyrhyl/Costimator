@@ -4,7 +4,7 @@
  * No database access, no side effects
  */
 
-import type { Space, Opening, FinishType, TakeoffLine, Level, SpaceFinishAssignment } from '@/types';
+import type { Space, Opening, FinishType, TakeoffLine, SpaceFinishAssignment } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface FloorFinishInput {

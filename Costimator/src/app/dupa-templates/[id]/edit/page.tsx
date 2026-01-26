@@ -46,7 +46,6 @@ export default function EditDUPATemplatePage() {
   const [materialTemplate, setMaterialTemplate] = useState<MaterialEntry[]>([]);
 
   // Master data for dropdowns
-  const [equipmentOptions, setEquipmentOptions] = useState<Array<{ _id: string; description: string }>>([]);
   const [materialOptions, setMaterialOptions] = useState<Array<{ materialCode: string; description: string; unit: string }>>([]);
 
   // Minor Tools configuration
@@ -110,9 +109,6 @@ export default function EditDUPATemplatePage() {
       }
 
       // Load master data
-      if (eqJson.success) {
-        setEquipmentOptions(eqJson.data.map((e: any) => ({ _id: e._id, description: e.description })));
-      }
       if (matJson.success) {
         setMaterialOptions(matJson.data.map((m: any) => ({ 
           materialCode: m.materialCode, 

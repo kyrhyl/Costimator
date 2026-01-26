@@ -4,7 +4,8 @@
  */
 
 export interface IMaterialEntry {
-  description: string;        // Renamed from nameAndSpecification for consistency
+  description: string;           // Material name/description (preferred field name)
+  nameAndSpecification?: string; // Backward compatibility alias (RateItem model uses this)
   unit: string;
   quantity: number;
   unitCost: number;
@@ -28,7 +29,7 @@ export interface IMaterialEntry {
  * ];
  * const cost = computeMaterialCost(materials); // 2500
  */
-export function computeMaterialCost(materialEntries: IMaterialEntry[]): number {
+export function computeMaterialCost(materialEntries: IMaterialEntry[] | any[]): number {
   return materialEntries.reduce((total, entry) => {
     const amount = entry.quantity * entry.unitCost;
     return total + amount;

@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import type { BOQLine } from '@/types';
-import { classifyItemsABC, getABCStatistics, getABCBadgeColor, getABCDescription, type ABCClass } from '@/lib/costing/utils/abc-analysis';
-import { generateMonthlyTimePhasing, generateQuarterlyTimePhasing, calculateCompletionDate, type TimePhase } from '@/lib/costing/utils/time-phasing';
+import { classifyItemsABC, getABCStatistics, getABCBadgeColor, type ABCClass } from '@/lib/costing/utils/abc-analysis';
+import { generateMonthlyTimePhasing, generateQuarterlyTimePhasing, calculateCompletionDate } from '@/lib/costing/utils/time-phasing';
 
 interface ProgramOfWorksProps {
   boqLines: BOQLine[];

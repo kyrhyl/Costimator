@@ -521,7 +521,7 @@ export interface CalcRun {
   summary?: CalcRunSummary;
   takeoffLines?: TakeoffLine[];
   boqLines?: BOQLine[];
-  errors?: string[];
+  validationErrors?: string[]; // Renamed from 'errors' to avoid Mongoose reserved keyword
 }
 
 // ===================================
