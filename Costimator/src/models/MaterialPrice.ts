@@ -79,8 +79,8 @@ const MaterialPriceSchema = new Schema<IMaterialPrice>(
   }
 );
 
-// Compound index for unique material per location
-MaterialPriceSchema.index({ materialCode: 1, location: 1 }, { unique: true });
+// Compound index for unique material per location per CMPD version
+MaterialPriceSchema.index({ materialCode: 1, location: 1, cmpd_version: 1 }, { unique: true });
 MaterialPriceSchema.index({ description: 1 });
 MaterialPriceSchema.index({ location: 1 });
 MaterialPriceSchema.index({ district: 1, effectiveDate: -1 }); // For district-based price lookup

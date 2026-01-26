@@ -178,6 +178,8 @@ export interface ICostEstimateModel extends Model<ICostEstimate> {
   generateEstimateNumber(): Promise<string>;
   getEstimatesForTakeoff(takeoffVersionId: string): Promise<ICostEstimate[]>;
   getEstimatesForProject(projectId: string, options?: { cmpdVersion?: string }): Promise<ICostEstimate[]>;
+  getProjectEstimates(projectId: string, options?: { cmpdVersion?: string }): Promise<ICostEstimate[]>;
+  getVersionEstimates(takeoffVersionId: string): Promise<ICostEstimate[]>;
 }
 
 // ====================================
@@ -464,7 +466,7 @@ CostEstimateSchema.statics.generateEstimateNumber = async function(): Promise<st
 /**
  * Get all estimates for a project
  */
-CostEstimateSchema.statics.getProjectEstimates = async function(
+CostEstimateSchema.statics.getEstimatesForProject = async function(
   projectId: string,
   options: { takeoffVersionId?: string; cmpdVersion?: string; status?: string } = {}
 ): Promise<ICostEstimate[]> {
@@ -490,13 +492,31 @@ CostEstimateSchema.statics.getProjectEstimates = async function(
 /**
  * Get estimates for a specific takeoff version
  */
-CostEstimateSchema.statics.getVersionEstimates = async function(
+CostEstimateSchema.statics.getEstimatesForTakeoff = async function(
   takeoffVersionId: string
 ): Promise<ICostEstimate[]> {
   return this.find({ takeoffVersionId })
     .sort({ createdAt: -1 })
     .lean();
 };
+
+// Backwards-compatible aliases
+CostEstimateSchema.statics.getProjectEstimates = (function(
+  this: unknown,
+  projectId: string,
+  options: { takeoffVersionId?: string; cmpdVersion?: string; status?: string } = {}
+) {
+  const model = this as ICostEstimateModel;
+  return model.getEstimatesForProject(projectId, options);
+}) as any;
+
+CostEstimateSchema.statics.getVersionEstimates = (function(
+  this: unknown,
+  takeoffVersionId: string
+) {
+  const model = this as ICostEstimateModel;
+  return model.getEstimatesForTakeoff(takeoffVersionId);
+}) as any;
 
 // ====================================
 // INSTANCE METHODS

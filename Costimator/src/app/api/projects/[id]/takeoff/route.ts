@@ -39,10 +39,6 @@ export async function POST(
     let totalConcreteVolume = 0;
     let totalRebarWeight = 0;
     let totalFormworkArea = 0;
-    let totalFloorArea = 0;
-    let totalWallArea = 0;
-    let totalCeilingArea = 0;
-    let totalRoofArea = 0;
 
     // ===================================
     // 1. STRUCTURAL ELEMENTS CALCULATION
@@ -93,9 +89,6 @@ export async function POST(
         allTakeoffLines.push(...finishesResult.takeoffLines);
         errors.push(...finishesResult.errors);
 
-        // Finishes calculation removed - these variables are tracked but not currently used
-        // totalFloorArea, totalWallArea, totalCeilingArea, totalRoofArea
-
         console.log(`✓ Finishes calculated: ${finishesResult.takeoffLines.length} takeoff lines`);
       } catch (err) {
         const errorMsg = `Finishes calculation failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -113,8 +106,6 @@ export async function POST(
 
         allTakeoffLines.push(...roofingResult.takeoffLines);
         errors.push(...roofingResult.errors);
-
-        // Roofing calculation removed - totalRoofArea tracked but not currently used
 
         console.log(`✓ Roofing calculated: ${roofingResult.takeoffLines.length} takeoff lines`);
       } catch (err) {

@@ -1,9 +1,11 @@
 /**
  * DPWH Indirect Cost Calculation
  * Based on Estimated Direct Cost (EDC)
- * 
- * Reference: DPWH Standard Guidelines for Contract Cost Estimation
+ *
+ * Reference: DPWH Department Order No. 204, Series of 2015
  */
+
+import { getDPWHMarkupRates } from '../../utils/dpwhMarkups';
 
 export interface IndirectCostBreakdown {
   estimatedDirectCost: number;
@@ -17,49 +19,22 @@ export interface IndirectCostBreakdown {
 }
 
 /**
- * Calculate OCM (Overhead, Contingencies, and Miscellaneous) and 
+ * Calculate OCM (Overhead, Contingencies, and Miscellaneous) and
  * Contractor's Profit percentages based on EDC bracket
- * 
- * DPWH Standard Percentages:
- * - Up to ₱5M: OCM 15%, CP 10% (Total 25%)
- * - Above ₱5M up to ₱50M: OCM 12%, CP 8% (Total 20%)
- * - Above ₱50M up to ₱150M: OCM 10%, CP 8% (Total 18%)
- * - Above ₱150M: OCM 8%, CP 8% (Total 16%)
+ *
+ * Delegates to DPWH markup rates used across the system.
  */
 export function getIndirectCostPercentages(estimatedDirectCost: number): {
   ocmPercentage: number;
   contractorsProfitPercentage: number;
   totalIndirectCostPercentage: number;
 } {
-  if (estimatedDirectCost <= 5_000_000) {
-    // Up to ₱5M
-    return {
-      ocmPercentage: 15,
-      contractorsProfitPercentage: 10,
-      totalIndirectCostPercentage: 25,
-    };
-  } else if (estimatedDirectCost <= 50_000_000) {
-    // Above ₱5M up to ₱50M
-    return {
-      ocmPercentage: 12,
-      contractorsProfitPercentage: 8,
-      totalIndirectCostPercentage: 20,
-    };
-  } else if (estimatedDirectCost <= 150_000_000) {
-    // Above ₱50M up to ₱150M
-    return {
-      ocmPercentage: 10,
-      contractorsProfitPercentage: 8,
-      totalIndirectCostPercentage: 18,
-    };
-  } else {
-    // Above ₱150M
-    return {
-      ocmPercentage: 8,
-      contractorsProfitPercentage: 8,
-      totalIndirectCostPercentage: 16,
-    };
-  }
+  const rates = getDPWHMarkupRates(estimatedDirectCost);
+  return {
+    ocmPercentage: rates.ocm,
+    contractorsProfitPercentage: rates.cp,
+    totalIndirectCostPercentage: rates.ocm + rates.cp,
+  };
 }
 
 /**
@@ -95,13 +70,15 @@ export function calculateIndirectCosts(estimatedDirectCost: number): IndirectCos
  * @returns Human-readable bracket description
  */
 export function getEDCBracketDescription(estimatedDirectCost: number): string {
-  if (estimatedDirectCost <= 5_000_000) {
-    return 'Up to ₱5 Million';
+  if (estimatedDirectCost <= 1_000_000) {
+    return 'Up to ₱1 Million';
+  } else if (estimatedDirectCost <= 5_000_000) {
+    return '₱1M to ₱5M';
+  } else if (estimatedDirectCost <= 15_000_000) {
+    return '₱5M to ₱15M';
   } else if (estimatedDirectCost <= 50_000_000) {
-    return 'Above ₱5M up to ₱50M';
-  } else if (estimatedDirectCost <= 150_000_000) {
-    return 'Above ₱50M up to ₱150M';
+    return '₱15M to ₱50M';
   } else {
-    return 'Above ₱150M';
+    return 'Above ₱50M';
   }
 }

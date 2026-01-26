@@ -73,7 +73,8 @@ describe('Materials API', () => {
     });
 
      it('should default isActive to true', async () => {
-       const { isActive: _, ...materialWithoutActive } = testMaterial;
+       const { isActive, ...materialWithoutActive } = testMaterial;
+       void isActive;
       
       vi.mocked(Material.findOne).mockResolvedValue(null);
       vi.mocked(Material.create).mockResolvedValue({

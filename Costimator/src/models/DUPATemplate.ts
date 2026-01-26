@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { normalizePayItemNumber } from '../lib/costing/utils/normalize-pay-item';
 
 // =============================================
 // Template Labor Entry - References designation only
@@ -55,6 +56,7 @@ const materialTemplateSchema = new Schema<IMaterialTemplate>({
 export interface IDUPATemplate extends Document {
   payItemId?: mongoose.Types.ObjectId;    // Reference to PayItem collection (optional)
   payItemNumber: string;
+  normalizedPayItemNumber?: string;
   payItemDescription: string;
   unitOfMeasurement: string;
   outputPerHour: number;
@@ -95,6 +97,10 @@ const dupaTemplateSchema = new Schema<IDUPATemplate>(
       type: String,
       required: true,
       unique: true
+    },
+    normalizedPayItemNumber: {
+      type: String,
+      default: ''
     },
     payItemDescription: {
       type: String,
@@ -168,8 +174,32 @@ const dupaTemplateSchema = new Schema<IDUPATemplate>(
 
 // Indexes
 dupaTemplateSchema.index({ payItemNumber: 1 });
+dupaTemplateSchema.index({ normalizedPayItemNumber: 1 });
 dupaTemplateSchema.index({ part: 1 });
 dupaTemplateSchema.index({ category: 1 });
 dupaTemplateSchema.index({ isActive: 1 });
+
+// Normalize pay item numbers for matching
+dupaTemplateSchema.pre('save', function() {
+  if (this.isModified('payItemNumber')) {
+    this.normalizedPayItemNumber = normalizePayItemNumber(this.payItemNumber);
+  }
+});
+
+dupaTemplateSchema.pre('findOneAndUpdate', function() {
+  const update = this.getUpdate() as Record<string, any> | undefined;
+  if (!update) {
+    return;
+  }
+
+  if (update.payItemNumber) {
+    update.normalizedPayItemNumber = normalizePayItemNumber(update.payItemNumber);
+  }
+
+  if (update.$set?.payItemNumber) {
+    update.$set.normalizedPayItemNumber = normalizePayItemNumber(update.$set.payItemNumber);
+  }
+
+});
 
 export default mongoose.models.DUPATemplate || mongoose.model<IDUPATemplate>('DUPATemplate', dupaTemplateSchema);

@@ -138,11 +138,26 @@ export function computeProjectCostSummary(
   grandTotal: number;
   itemCount: number;
 } {
+  const getQuantity = (item: BOQItemCostBreakdown) =>
+    item.totalUnitCost > 0 ? item.totalAmount / item.totalUnitCost : 0;
+
   // Sum up all component costs
-  const totalLaborCost = boqItemCosts.reduce((sum, item) => sum + (item.laborCost * (item.totalAmount / item.totalUnitCost)), 0);
-  const totalEquipmentCost = boqItemCosts.reduce((sum, item) => sum + (item.equipmentCost * (item.totalAmount / item.totalUnitCost)), 0);
-  const totalMaterialCost = boqItemCosts.reduce((sum, item) => sum + (item.materialCost * (item.totalAmount / item.totalUnitCost)), 0);
-  const totalDirectCost = boqItemCosts.reduce((sum, item) => sum + (item.directCost * (item.totalAmount / item.totalUnitCost)), 0);
+  const totalLaborCost = boqItemCosts.reduce(
+    (sum, item) => sum + (item.laborCost * getQuantity(item)),
+    0
+  );
+  const totalEquipmentCost = boqItemCosts.reduce(
+    (sum, item) => sum + (item.equipmentCost * getQuantity(item)),
+    0
+  );
+  const totalMaterialCost = boqItemCosts.reduce(
+    (sum, item) => sum + (item.materialCost * getQuantity(item)),
+    0
+  );
+  const totalDirectCost = boqItemCosts.reduce(
+    (sum, item) => sum + (item.directCost * getQuantity(item)),
+    0
+  );
   
   // Calculate project-level indirect costs
   const indirectCosts = calculateIndirectCosts(totalDirectCost);
