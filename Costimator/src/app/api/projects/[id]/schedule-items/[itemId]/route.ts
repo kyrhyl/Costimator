@@ -56,15 +56,16 @@ export async function PUT(
       ...project.scheduleItems[itemIndex],
       category: body.category ?? project.scheduleItems[itemIndex].category,
       dpwhItemNumberRaw: body.dpwhItemNumberRaw ?? project.scheduleItems[itemIndex].dpwhItemNumberRaw,
+      itemName: body.descriptionOverride ?? body.dpwhItemNumberRaw ?? project.scheduleItems[itemIndex].itemName,
       descriptionOverride: body.descriptionOverride ?? project.scheduleItems[itemIndex].descriptionOverride,
       unit: body.unit ?? project.scheduleItems[itemIndex].unit,
       qty: body.qty ?? project.scheduleItems[itemIndex].qty,
+      quantity: body.qty ?? body.quantity ?? project.scheduleItems[itemIndex].quantity,
       basisNote: body.basisNote ?? project.scheduleItems[itemIndex].basisNote,
       tags: body.tags ?? project.scheduleItems[itemIndex].tags,
       mark: body.mark ?? project.scheduleItems[itemIndex].mark,
       width_m: body.width_m ?? project.scheduleItems[itemIndex].width_m,
       height_m: body.height_m ?? project.scheduleItems[itemIndex].height_m,
-      quantity: body.quantity ?? project.scheduleItems[itemIndex].quantity,
       location: body.location ?? project.scheduleItems[itemIndex].location,
     };
 

@@ -464,13 +464,21 @@ const RoofPlaneSchema = new Schema({
 const ScheduleItemSchema = new Schema({
   id: { type: String, required: true },
   category: { type: String, required: true },
-  itemName: { type: String, required: true },
+  // Legacy fields (kept for backward compatibility)
+  itemName: { type: String, default: '' },
   dpwhItemNumberRaw: { type: String, required: true },
+  descriptionOverride: { type: String, default: '' },
   unit: { type: String, required: true },
-  quantity: { type: Number, required: true },
-  levelId: String,
-  tags: [String],
-  notes: String,
+  qty: { type: Number, required: true },
+  quantity: { type: Number, default: 0 },
+  basisNote: { type: String, default: '' },
+  tags: { type: [String], default: [] },
+
+  // Optional fields for doors & windows
+  mark: { type: String, default: '' },
+  width_m: { type: Number, default: 0 },
+  height_m: { type: Number, default: 0 },
+  location: { type: String, default: '' },
 });
 
 // Main Project Schema

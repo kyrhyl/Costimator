@@ -286,7 +286,6 @@ const EstimateRateItemSchema = new Schema<IEstimateRateItem>(
 // Main query indexes
 EstimateRateItemSchema.index({ costEstimateId: 1, payItemNumber: 1 });
 EstimateRateItemSchema.index({ costEstimateId: 1, createdAt: -1 });
-EstimateRateItemSchema.index({ payItemNumber: 1 });
 
 // Search index
 EstimateRateItemSchema.index({ description: 'text' });

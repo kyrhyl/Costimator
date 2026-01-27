@@ -31,6 +31,15 @@ interface IProject {
   gridX?: any[];
   gridY?: any[];
   levels?: any[];
+  scheduleItems?: {
+    id: string;
+    category: string;
+    dpwhItemNumberRaw: string;
+    descriptionOverride?: string;
+    unit: string;
+    qty: number;
+    tags?: string[];
+  }[];
 }
 
 type DPWHPart = 'C' | 'D' | 'E' | 'F' | 'G';
@@ -55,6 +64,68 @@ export default function TakeoffWorkspacePage() {
   const [activePart, setActivePart] = useState<DPWHPart>('D');
   const [activeTab, setActiveTab] = useState<TabType>('grid');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const earthworksCategories = [
+    {
+      id: 'earthworks-clearing',
+      label: 'Clearing & Grubbing',
+      description: 'Clearing, grubbing, and site prep'
+    },
+    {
+      id: 'earthworks-removal-trees',
+      label: 'Removal of Trees',
+      description: 'Tree removal and disposal'
+    },
+    {
+      id: 'earthworks-removal-structures',
+      label: 'Removal of Structures',
+      description: 'Demolition and disposal'
+    },
+    {
+      id: 'earthworks-excavation',
+      label: 'Excavation',
+      description: 'Average area excavation'
+    },
+    {
+      id: 'earthworks-structure-excavation',
+      label: 'Structure Excavation',
+      description: 'Footings, foundations, utilities'
+    },
+    {
+      id: 'earthworks-embankment',
+      label: 'Embankment',
+      description: 'Fill, borrow, compaction'
+    },
+    {
+      id: 'earthworks-site-development',
+      label: 'Site Development',
+      description: 'Other earthworks items'
+    },
+  ];
+
+  const scheduleItems = project?.scheduleItems || [];
+  const earthworkItems = scheduleItems.filter(item => item.category.startsWith('earthworks-'));
+  const totalEarthworkItems = earthworkItems.length;
+  const totalEarthworkQty = earthworkItems.reduce((sum, item) => sum + (item.qty || 0), 0);
+  const totalEarthworkUnits = Array.from(new Set(earthworkItems.map(item => item.unit).filter(Boolean)));
+  const totalEarthworkUnitLabel = totalEarthworkUnits.length === 1
+    ? totalEarthworkUnits[0]
+    : totalEarthworkUnits.length === 0
+      ? ''
+      : 'Mixed units';
+
+  const summarizeCategory = (categoryId: string) => {
+    const items = earthworkItems.filter(item => item.category === categoryId);
+    const qty = items.reduce((sum, item) => sum + (item.qty || 0), 0);
+    const units = Array.from(new Set(items.map(item => item.unit).filter(Boolean)));
+    return {
+      count: items.length,
+      qty,
+      unitLabel: units.length === 1 ? units[0] : units.length === 0 ? '' : 'Mixed units',
+    };
+  };
+
+  const recentEarthworkItems = earthworkItems.slice(-5).reverse();
 
   const fetchProject = useCallback(async () => {
     try {
@@ -620,6 +691,72 @@ export default function TakeoffWorkspacePage() {
                   <p className="text-sm text-amber-700">
                     Site preparation, clearing, excavation, embankment, and earthwork activities
                   </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="bg-white rounded-lg border border-amber-100 p-4">
+                    <div className="text-xs font-medium text-amber-600">Total Items</div>
+                    <div className="text-2xl font-semibold text-amber-900 mt-1">{totalEarthworkItems}</div>
+                    <div className="text-xs text-amber-700 mt-1">Across all earthworks categories</div>
+                  </div>
+                  <div className="bg-white rounded-lg border border-amber-100 p-4">
+                    <div className="text-xs font-medium text-amber-600">Total Quantity</div>
+                    <div className="text-2xl font-semibold text-amber-900 mt-1">
+                      {totalEarthworkItems > 0 ? totalEarthworkQty.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0'}
+                    </div>
+                    <div className="text-xs text-amber-700 mt-1">
+                      {totalEarthworkUnitLabel || 'No unit'}
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg border border-amber-100 p-4">
+                    <div className="text-xs font-medium text-amber-600">Categories Active</div>
+                    <div className="text-2xl font-semibold text-amber-900 mt-1">
+                      {earthworksCategories.filter(cat => summarizeCategory(cat.id).count > 0).length}
+                    </div>
+                    <div className="text-xs text-amber-700 mt-1">With at least one item</div>
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {earthworksCategories.map(category => {
+                    const summary = summarizeCategory(category.id);
+                    return (
+                      <div key={category.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="text-sm font-semibold text-gray-900">{category.label}</div>
+                            <div className="text-xs text-gray-500 mt-1">{category.description}</div>
+                          </div>
+                          <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                            {summary.count} item{summary.count === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="mt-3 text-sm text-gray-700">
+                          Total qty: {summary.count > 0
+                            ? `${summary.qty.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${summary.unitLabel}`
+                            : '0'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="text-sm font-semibold text-gray-900 mb-3">Recent Earthworks Items</div>
+                  {recentEarthworkItems.length === 0 ? (
+                    <div className="text-sm text-gray-500">No earthworks items saved yet.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {recentEarthworkItems.map(item => (
+                        <div key={item.id} className="flex items-center justify-between text-sm">
+                          <div className="text-gray-800">
+                            <span className="font-medium">{item.dpwhItemNumberRaw}</span>
+                            <span className="text-gray-500"> — {item.descriptionOverride || item.dpwhItemNumberRaw}</span>
+                          </div>
+                          <div className="text-gray-600">
+                            {item.qty.toLocaleString('en-US', { maximumFractionDigits: 2 })} {item.unit}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 interface FinancialSummaryCardProps {
@@ -15,6 +16,11 @@ export default function FinancialSummaryCard({
   allottedAmount,
   budgetBreakdown 
 }: FinancialSummaryCardProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   // Calculate breakdown if not provided
   const directCosts = budgetBreakdown?.directCosts ?? allottedAmount * 0.70;
   const indirectCosts = budgetBreakdown?.indirectCosts ?? allottedAmount * 0.20;
@@ -65,24 +71,30 @@ export default function FinancialSummaryCard({
 
       {/* Donut Chart */}
       <div className="mb-4" style={{ height: '200px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={80}
-              paddingAngle={5}
-              dataKey="value"
-            >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index]} />
-              ))}
-            </Pie>
-            <Tooltip content={<CustomTooltip />} />
-          </PieChart>
-        </ResponsiveContainer>
+        {mounted ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-gray-400">
+            Chart loading...
+          </div>
+        )}
       </div>
 
       {/* Legend / Breakdown */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import type { TakeoffLine } from '@/types';
 import { aggregateByPartForChart } from '@/lib/utils/aggregateQuantities';
@@ -10,6 +10,12 @@ interface QuantityDistributionChartProps {
 }
 
 export default function QuantityDistributionChart({ takeoffLines }: QuantityDistributionChartProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const chartData = aggregateByPartForChart(takeoffLines);
 
   // Calculate total for percentages
@@ -80,6 +86,14 @@ export default function QuantityDistributionChart({ takeoffLines }: QuantityDist
       </div>
     );
   };
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center h-[350px] text-gray-400 text-sm">
+        Chart loading...
+      </div>
+    );
+  }
 
   if (chartData.length === 0) {
     return (

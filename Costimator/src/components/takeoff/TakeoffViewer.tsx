@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { TakeoffLine } from '@/types';
 import { classifyDPWHItem, sortDPWHParts } from '@/lib/dpwhClassification';
+import { exportBackupCalculationPdf } from '@/lib/reports/backupCalculationPdf';
 
 interface TakeoffViewerProps {
   projectId: string;
@@ -15,6 +16,26 @@ interface TakeoffSummary {
   totalFormwork: number;
   elementCount: number;
   takeoffLineCount: number;
+}
+
+interface ProjectInfo {
+  projectName?: string;
+  projectLocation?: string;
+  implementingOffice?: string;
+  district?: string;
+  cmpdVersion?: string;
+  settings?: {
+    rounding?: {
+      concrete?: number;
+      rebar?: number;
+      formwork?: number;
+    };
+    waste?: {
+      concrete?: number;
+      rebar?: number;
+      formwork?: number;
+    };
+  };
 }
 
 interface CalcRun {
@@ -35,25 +56,57 @@ export default function TakeoffViewer({ projectId, onTakeoffGenerated }: Takeoff
   const [hasCalcRun, setHasCalcRun] = useState(false);
   const [summarizedView, setSummarizedView] = useState(true);
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
+  const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
+  const [latestRunId, setLatestRunId] = useState<string | null>(null);
+  const [latestRunTimestamp, setLatestRunTimestamp] = useState<string | null>(null);
 
   // Load latest CalcRun on mount
   useEffect(() => {
     loadLatestCalcRun();
+    fetchProjectInfo();
   }, [projectId]);
+
+  const fetchProjectInfo = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}`);
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && result.data) {
+          setProjectInfo({
+            projectName: result.data.projectName,
+            projectLocation: result.data.projectLocation,
+            implementingOffice: result.data.implementingOffice,
+            district: result.data.district,
+            cmpdVersion: result.data.cmpdVersion,
+            settings: result.data.settings,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load project info:', err);
+    }
+  };
 
   const loadLatestCalcRun = async () => {
     try {
       const res = await fetch(`/api/projects/${projectId}/calcruns/latest`);
       if (res.ok) {
-        const data: CalcRun = await res.json();
-        setTakeoffLines(data.takeoffLines || []);
-        setSummary(data.summary || null);
-        setLastCalculated(data.timestamp);
-        setHasCalcRun(true);
-        
-        // Notify parent component
-        if (onTakeoffGenerated && data.takeoffLines) {
-          onTakeoffGenerated(data.takeoffLines);
+        const payload = await res.json();
+        const data: CalcRun | null = payload?.data || payload || null;
+
+        if (data) {
+          setTakeoffLines(data.takeoffLines || []);
+          setSummary(data.summary || null);
+          setLastCalculated(data.timestamp || null);
+          setLatestRunId(data.runId || null);
+          setLatestRunTimestamp(data.timestamp || null);
+          setHasCalcRun(true);
+
+          if (onTakeoffGenerated && data.takeoffLines) {
+            onTakeoffGenerated(data.takeoffLines);
+          }
+        } else {
+          setHasCalcRun(false);
         }
       } else {
         setHasCalcRun(false);
@@ -84,6 +137,8 @@ export default function TakeoffViewer({ projectId, onTakeoffGenerated }: Takeoff
       setTakeoffLines(lines);
       setSummary(data.summary || null);
       setLastCalculated(new Date().toISOString());
+      setLatestRunId(data.runId || null);
+      setLatestRunTimestamp(new Date().toISOString());
       setHasCalcRun(true);
       if (data.validationErrors && data.validationErrors.length > 0) {
         setErrors(data.validationErrors);
@@ -122,210 +177,20 @@ export default function TakeoffViewer({ projectId, onTakeoffGenerated }: Takeoff
   const exportToPDF = async () => {
     if (takeoffLines.length === 0) return;
 
-    const jsPDF = (await import('jspdf')).default;
-    const { default: autoTable } = await import('jspdf-autotable');
+    if (!projectInfo) {
+      alert('Project info is still loading. Please try again.');
+      return;
+    }
 
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    exportBackupCalculationPdf({
+      project: projectInfo,
+      calcRun: {
+        runId: latestRunId || undefined,
+        timestamp: latestRunTimestamp || undefined,
+        takeoffLines,
+        summary: summary || undefined,
+      },
     });
-
-    // Title Page
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('QUANTITY TAKEOFF REPORT', pageWidth / 2, 20, { align: 'center' });
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Project ID: ${projectId}`, pageWidth / 2, 30, { align: 'center' });
-    doc.text(`Generated: ${currentDate}`, pageWidth / 2, 36, { align: 'center' });
-    
-    let yPos = 50;
-
-    // Summary Section
-    if (summary) {
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SUMMARY', 14, yPos);
-      yPos += 10;
-
-      // Group quantities by trade and unit
-      const tradeSummary: Record<string, { qty: number; unit: string; count: number }> = {};
-      takeoffLines.forEach(line => {
-        const key = `${line.trade}_${line.unit}`;
-        if (!tradeSummary[key]) {
-          tradeSummary[key] = { qty: 0, unit: line.unit, count: 0 };
-        }
-        tradeSummary[key].qty += line.quantity;
-        tradeSummary[key].count += 1;
-      });
-
-      const summaryBody = Object.entries(tradeSummary).map(([key, data]) => {
-        const trade = key.split('_')[0];
-        const decimals = data.unit === 'kg' ? 2 : 3;
-        return [
-          trade,
-          data.qty.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }),
-          data.unit,
-          '-',
-          data.count.toString()
-        ];
-      });
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Trade', 'Quantity', 'Unit', 'Elements', 'Lines']],
-        body: summaryBody,
-        theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246], fontStyle: 'bold' },
-        margin: { left: 14, right: 14 },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 15;
-    }
-
-    // Group by DPWH Part and Subcategory
-    const byPartAndSubcategory: Record<string, Record<string, TakeoffLine[]>> = {};
-    
-    takeoffLines.forEach(line => {
-      // Get DPWH item number from tags (dpwh:xxx) or direct field
-      const dpwhTag = line.tags.find(tag => tag.startsWith('dpwh:'));
-      const dpwhItemNumber = dpwhTag ? dpwhTag.replace('dpwh:', '') : '';
-      
-      // Get category from trade
-      const category = line.trade;
-      
-      // Classify the item
-      const classification = classifyDPWHItem(dpwhItemNumber, category);
-      const partKey = classification.part;
-      const subcategoryKey = classification.subcategory;
-      
-      if (!byPartAndSubcategory[partKey]) {
-        byPartAndSubcategory[partKey] = {};
-      }
-      if (!byPartAndSubcategory[partKey][subcategoryKey]) {
-        byPartAndSubcategory[partKey][subcategoryKey] = [];
-      }
-      byPartAndSubcategory[partKey][subcategoryKey].push(line);
-    });
-
-    // Sort parts in DPWH order (C, D, E, F, G)
-    const sortedParts = Object.keys(byPartAndSubcategory).sort(sortDPWHParts);
-    
-    for (const partName of sortedParts) {
-      const subcategories = byPartAndSubcategory[partName];
-      
-      // Check if we need a new page for the Part header
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
-      }
-
-      // Part Header
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.setFillColor(220, 220, 220);
-      doc.rect(14, yPos - 5, pageWidth - 28, 10, 'F');
-      doc.text(partName, 16, yPos + 2);
-      yPos += 12;
-
-      // Sort subcategories alphabetically
-      const sortedSubcategories = Object.keys(subcategories).sort();
-      
-      for (const subcategoryName of sortedSubcategories) {
-        const subcategoryLines = subcategories[subcategoryName];
-        if (subcategoryLines.length === 0) continue;
-
-        // Check if we need a new page
-        if (yPos > 250) {
-          doc.addPage();
-          yPos = 20;
-        }
-
-        // Subcategory Header
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`  ${subcategoryName}`, 14, yPos);
-        yPos += 6;
-
-        const tableData = subcategoryLines.map(line => {
-          const typeTag = line.tags.find(tag => tag.startsWith('type:'))?.replace('type:', '') 
-            || line.tags.find(tag => tag.startsWith('component:'))?.replace('component:', '')
-            || line.tags.find(tag => tag.startsWith('category:'))?.replace('category:', '')
-            || line.trade.toLowerCase();
-          const templateTag = line.tags.find(tag => tag.startsWith('template:'))?.replace('template:', '') 
-            || line.tags.find(tag => tag.startsWith('finish:'))?.replace('finish:', '')
-            || line.tags.find(tag => tag.startsWith('section:'))?.replace('section:', '')
-            || line.resourceKey.split('-')[0] || 'N/A';
-          const levelTag = line.tags.find(tag => tag.startsWith('level:'))?.replace('level:', '') 
-            || line.tags.find(tag => tag.startsWith('space:'))?.replace('space:', '')
-            || 'N/A';
-          
-          // Extract DPWH item number from tags or field
-          const dpwhTag = line.tags.find(tag => tag.startsWith('dpwh:'));
-          const dpwhItemNo = dpwhTag ? dpwhTag.replace('dpwh:', '') : '-';
-          
-          return [
-            line.resourceKey || templateTag,
-            typeTag,
-            levelTag,
-            line.unit === 'kg' 
-              ? line.quantity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-              : line.quantity.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
-            line.unit,
-            line.formulaText,
-            dpwhItemNo
-          ];
-        });
-
-        autoTable(doc, {
-          startY: yPos,
-          head: [['Description', 'Type', 'Location', 'Quantity', 'Unit', 'Formula', 'Item No.']],
-          body: tableData,
-          theme: 'striped',
-          headStyles: { 
-            fillColor: [59, 130, 246],
-            fontStyle: 'bold',
-            fontSize: 8
-          },
-          styles: { fontSize: 7, cellPadding: 1.5 },
-          columnStyles: {
-            0: { cellWidth: 35 },
-            1: { cellWidth: 18 },
-            2: { cellWidth: 20 },
-            3: { cellWidth: 20, halign: 'right' },
-            4: { cellWidth: 12 },
-            5: { cellWidth: 'auto', fontSize: 6 },
-            6: { cellWidth: 18, halign: 'center' }
-          },
-          margin: { left: 14, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 8;
-      }
-
-      yPos += 5; // Extra space between parts
-    }
-
-    // Footer on last page
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text(
-        `Page ${i} of ${pageCount}`,
-        pageWidth / 2,
-        doc.internal.pageSize.height - 10,
-        { align: 'center' }
-      );
-    }
-
-    // Save PDF
-    doc.save(`Takeoff_Report_${projectId}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   return (
@@ -353,7 +218,7 @@ export default function TakeoffViewer({ projectId, onTakeoffGenerated }: Takeoff
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
-              Export PDF Report
+              Export Backup Calculation PDF
             </button>
             <button
               onClick={generateTakeoff}

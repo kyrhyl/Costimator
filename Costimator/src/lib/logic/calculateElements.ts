@@ -161,6 +161,9 @@ export function calculateStructuralElements(
     return Math.round(value * multiplier) / multiplier;
   }
 
+  const withDpwhTag = (tags: string[], dpwhItem?: string) =>
+    dpwhItem ? [...tags, `dpwh:${dpwhItem}`] : tags;
+
   // Process each element instance
   for (const instance of elementInstances) {
     try {
@@ -302,6 +305,8 @@ export function calculateStructuralElements(
 
       totalConcreteVolume += concreteResult.volumeWithWaste;
 
+      const dpwhConcreteItem = template.dpwhItemNumber || '900';
+
       takeoffLines.push({
         id: `tof_${instance.id}_concrete`,
         sourceElementId: instance.id,
@@ -315,7 +320,7 @@ export function calculateStructuralElements(
         formulaText: concreteResult.formulaText,
         inputsSnapshot: concreteResult.inputs,
         assumptions: [`Waste: ${(concreteWaste * 100).toFixed(0)}%`],
-        tags,
+        tags: withDpwhTag(tags, dpwhConcreteItem),
         calculatedAt: new Date(),
       });
     } catch (err) {
@@ -330,6 +335,8 @@ export function calculateStructuralElements(
 
       totalFormworkArea += formworkResult.area;
 
+      const dpwhFormworkItem = template.dpwhItemNumber || '900';
+
       takeoffLines.push({
         id: `tof_${instance.id}_formwork`,
         sourceElementId: instance.id,
@@ -343,7 +350,7 @@ export function calculateStructuralElements(
         formulaText: formworkResult.formulaText,
         inputsSnapshot: formworkResult.inputs,
         assumptions: ['Contact area: bottom + 2 sides'],
-        tags,
+        tags: withDpwhTag(tags, dpwhFormworkItem),
         calculatedAt: new Date(),
       });
     } catch (err) {
@@ -406,7 +413,10 @@ export function calculateStructuralElements(
           `DPWH Item: ${dpwhItem}`,
           `Grade ${grade}`,
         ],
-        tags: [...tags, `rebar:main`, `diameter:${rebarConfig.mainBars.diameter}mm`],
+        tags: withDpwhTag(
+          [...tags, `rebar:main`, `diameter:${rebarConfig.mainBars.diameter}mm`],
+          dpwhItem
+        ),
         calculatedAt: new Date(),
       });
     }
@@ -448,7 +458,10 @@ export function calculateStructuralElements(
           `Grade ${grade}`,
           `Spacing: ${rebarConfig.stirrups.spacing}m`,
         ],
-        tags: [...tags, `rebar:stirrups`, `diameter:${rebarConfig.stirrups.diameter}mm`],
+        tags: withDpwhTag(
+          [...tags, `rebar:stirrups`, `diameter:${rebarConfig.stirrups.diameter}mm`],
+          dpwhItem
+        ),
         calculatedAt: new Date(),
       });
     }
@@ -545,6 +558,8 @@ export function calculateStructuralElements(
 
       totalConcreteVolume += concreteResult.volumeWithWaste;
 
+      const dpwhConcreteItem = template.dpwhItemNumber || '900';
+
       takeoffLines.push({
         id: `tof_${instance.id}_concrete`,
         sourceElementId: instance.id,
@@ -561,7 +576,7 @@ export function calculateStructuralElements(
           `Waste: ${(concreteWaste * 100).toFixed(0)}%`,
           `Height: ${level.label} to ${endLevel.label} (${height.toFixed(2)}m)`,
         ],
-        tags,
+        tags: withDpwhTag(tags, dpwhConcreteItem),
         calculatedAt: new Date(),
       });
     } catch (err) {
@@ -586,6 +601,8 @@ export function calculateStructuralElements(
 
       totalFormworkArea += formworkResult.area;
 
+      const dpwhFormworkItem = template.dpwhItemNumber || '900';
+
       takeoffLines.push({
         id: `tof_${instance.id}_formwork`,
         sourceElementId: instance.id,
@@ -599,7 +616,7 @@ export function calculateStructuralElements(
         formulaText: formworkResult.formulaText,
         inputsSnapshot: formworkResult.inputs,
         assumptions: [diameter ? 'Cylindrical surface' : 'All 4 sides'],
-        tags,
+        tags: withDpwhTag(tags, dpwhFormworkItem),
         calculatedAt: new Date(),
       });
     } catch (err) {
@@ -663,7 +680,10 @@ export function calculateStructuralElements(
           `DPWH Item: ${dpwhItem}`,
           `Grade ${grade}`,
         ],
-        tags: [...tags, `rebar:main`, `diameter:${rebarConfig.mainBars.diameter}mm`],
+        tags: withDpwhTag(
+          [...tags, `rebar:main`, `diameter:${rebarConfig.mainBars.diameter}mm`],
+          dpwhItem
+        ),
         calculatedAt: new Date(),
       });
     }
@@ -705,7 +725,10 @@ export function calculateStructuralElements(
           `Grade ${grade}`,
           `Spacing: ${rebarConfig.stirrups.spacing}m`,
         ],
-        tags: [...tags, `rebar:ties`, `diameter:${rebarConfig.stirrups.diameter}mm`],
+        tags: withDpwhTag(
+          [...tags, `rebar:ties`, `diameter:${rebarConfig.stirrups.diameter}mm`],
+          dpwhItem
+        ),
         calculatedAt: new Date(),
       });
     }
@@ -791,6 +814,8 @@ export function calculateStructuralElements(
 
       totalConcreteVolume += concreteResult.volumeWithWaste;
 
+      const dpwhConcreteItem = template.dpwhItemNumber || '900';
+
       takeoffLines.push({
         id: `tof_${instance.id}_concrete`,
         sourceElementId: instance.id,
@@ -804,7 +829,7 @@ export function calculateStructuralElements(
         formulaText: concreteResult.formulaText,
         inputsSnapshot: concreteResult.inputs,
         assumptions: [`Waste: ${(concreteWaste * 100).toFixed(0)}%`],
-        tags,
+        tags: withDpwhTag(tags, dpwhConcreteItem),
         calculatedAt: new Date(),
       });
     } catch (err) {
@@ -819,6 +844,8 @@ export function calculateStructuralElements(
 
       totalFormworkArea += formworkResult.area;
 
+      const dpwhFormworkItem = template.dpwhItemNumber || '900';
+
       takeoffLines.push({
         id: `tof_${instance.id}_formwork`,
         sourceElementId: instance.id,
@@ -832,7 +859,7 @@ export function calculateStructuralElements(
         formulaText: formworkResult.formulaText,
         inputsSnapshot: formworkResult.inputs,
         assumptions: ['Soffit formwork (bottom surface)'],
-        tags,
+        tags: withDpwhTag(tags, dpwhFormworkItem),
         calculatedAt: new Date(),
       });
     } catch (err) {
@@ -908,7 +935,10 @@ export function calculateStructuralElements(
           `DPWH Item: ${dpwhItem}`,
           `Grade ${grade}`,
         ],
-        tags: [...tags, `rebar:main`, `diameter:${rebarConfig.mainBars.diameter}mm`],
+        tags: withDpwhTag(
+          [...tags, `rebar:main`, `diameter:${rebarConfig.mainBars.diameter}mm`],
+          dpwhItem
+        ),
         calculatedAt: new Date(),
       });
     }
@@ -947,7 +977,10 @@ export function calculateStructuralElements(
           `DPWH Item: ${dpwhItem}`,
           `Grade ${grade}`,
         ],
-        tags: [...tags, `rebar:secondary`, `diameter:${rebarConfig.secondaryBars.diameter}mm`],
+        tags: withDpwhTag(
+          [...tags, `rebar:secondary`, `diameter:${rebarConfig.secondaryBars.diameter}mm`],
+          dpwhItem
+        ),
         calculatedAt: new Date(),
       });
     }
@@ -987,6 +1020,8 @@ export function calculateStructuralElements(
 
       totalConcreteVolume += volumeWithWaste;
 
+      const dpwhConcreteItem = template.dpwhItemNumber || '900';
+
       takeoffLines.push({
         id: `tof_${instance.id}_concrete`,
         sourceElementId: instance.id,
@@ -1000,7 +1035,7 @@ export function calculateStructuralElements(
         formulaText: `V = L × W × D = ${length} × ${width} × ${depth} = ${volume.toFixed(3)} m³ (+ ${(concreteWaste * 100).toFixed(0)}% waste = ${volumeWithWaste.toFixed(3)} m³)`,
         inputsSnapshot: { length, width, depth, waste: concreteWaste },
         assumptions: [`Waste: ${(concreteWaste * 100).toFixed(0)}%`],
-        tags,
+        tags: withDpwhTag(tags, dpwhConcreteItem),
         calculatedAt: new Date(),
       });
     } catch (err) {
@@ -1016,6 +1051,8 @@ export function calculateStructuralElements(
 
       totalFormworkArea += area;
 
+      const dpwhFormworkItem = template.dpwhItemNumber || '900';
+
       takeoffLines.push({
         id: `tof_${instance.id}_formwork`,
         sourceElementId: instance.id,
@@ -1029,7 +1066,7 @@ export function calculateStructuralElements(
         formulaText: `A = Perimeter × Depth = ${perimeter.toFixed(2)} × ${depth} = ${area.toFixed(2)} m²`,
         inputsSnapshot: { length, width, depth, perimeter },
         assumptions: ['All 4 vertical sides (bottom in contact with soil)'],
-        tags,
+        tags: withDpwhTag(tags, dpwhFormworkItem),
         calculatedAt: new Date(),
       });
     } catch (err) {
@@ -1039,4 +1076,3 @@ export function calculateStructuralElements(
     }
   }
 }
-

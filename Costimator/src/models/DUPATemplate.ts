@@ -173,7 +173,6 @@ const dupaTemplateSchema = new Schema<IDUPATemplate>(
 );
 
 // Indexes
-dupaTemplateSchema.index({ payItemNumber: 1 });
 dupaTemplateSchema.index({ normalizedPayItemNumber: 1 });
 dupaTemplateSchema.index({ part: 1 });
 dupaTemplateSchema.index({ category: 1 });

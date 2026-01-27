@@ -363,10 +363,13 @@ export type ScheduleItemCategory =
 export interface ScheduleItem {
   id: string;
   category: ScheduleItemCategory;
+  // Legacy fields kept for compatibility
+  itemName?: string;
   dpwhItemNumberRaw: string; // must exist in catalog
   descriptionOverride?: string; // optional custom description
   unit: string; // must match DPWH unit (e.g., "Each", "Lump Sum", "Linear Meter")
   qty: number;
+  quantity?: number;
   basisNote: string; // e.g., "per door schedule", "lump sum as per plans"
   tags: string[]; // e.g., ["level:2F", "zone:admin", "type:flush-door"]
   
@@ -374,7 +377,6 @@ export interface ScheduleItem {
   mark?: string; // D1, D2, W1, W2, etc.
   width_m?: number; // width in meters
   height_m?: number; // height in meters
-  quantity?: number; // number of doors/windows of this mark
   location?: string; // placement location or remarks
 }
 

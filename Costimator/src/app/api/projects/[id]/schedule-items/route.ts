@@ -75,15 +75,16 @@ export async function POST(
       id: uuidv4(),
       category: body.category,
       dpwhItemNumberRaw: body.dpwhItemNumberRaw,
+      itemName: body.descriptionOverride || body.dpwhItemNumberRaw,
       descriptionOverride: body.descriptionOverride,
       unit: body.unit,
       qty: body.qty,
+      quantity: body.qty ?? body.quantity,
       basisNote: body.basisNote,
       tags: body.tags || [],
       mark: body.mark,
       width_m: body.width_m,
       height_m: body.height_m,
-      quantity: body.quantity,
       location: body.location,
     };
 

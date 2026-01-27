@@ -6,6 +6,9 @@ import { classifyDPWHItem, sortDPWHParts } from '@/lib/dpwhClassification';
 import { exportBOQToCostEstimate, downloadAsJSON, downloadAsCSV } from '@/lib/exportBOQToCostEstimate';
 import { computeBOQItemCost } from '@/lib/costing';
 import SaveBOQModal from './SaveBOQModal';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { exportBackupCalculationPdf } from '@/lib/reports/backupCalculationPdf';
 
 interface BOQViewerProps {
   projectId: string;
@@ -27,6 +30,7 @@ interface CalcRun {
   timestamp: string;
   status: string;
   boqLines: BOQLine[];
+  takeoffLines?: TakeoffLine[];
   summary: {
     totalConcrete: number;
     totalRebar: number;
@@ -59,9 +63,28 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
    const [filterType, setFilterType] = useState('all');
    const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
    const [costingEnabled, setCostingEnabled] = useState(false);
-   const [projectInfo, setProjectInfo] = useState<{ district?: string; cmpdVersion?: string } | null>(null);
+   const [projectInfo, setProjectInfo] = useState<{
+     projectName?: string;
+     projectLocation?: string;
+     implementingOffice?: string;
+     district?: string;
+     cmpdVersion?: string;
+     settings?: {
+       rounding?: {
+         concrete?: number;
+         rebar?: number;
+         formwork?: number;
+       };
+       waste?: {
+         concrete?: number;
+         rebar?: number;
+         formwork?: number;
+       };
+     };
+   } | null>(null);
    const [calcRuns, setCalcRuns] = useState<CalcRunListItem[]>([]);
    const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+   const [calcRunData, setCalcRunData] = useState<CalcRun | null>(null);
    
    // Save BOQ modal state
    const [showSaveModal, setShowSaveModal] = useState(false);
@@ -105,6 +128,7 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
       if (res.ok) {
         const result = await res.json();
         const data: CalcRun = result.success ? result.data : result;
+        setCalcRunData(data);
         
         if (data.boqLines && data.boqLines.length > 0) {
           setBoqLines(data.boqLines);
@@ -147,8 +171,12 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
         const result = await res.json();
         if (result.success && result.data) {
           setProjectInfo({
+            projectName: result.data.projectName,
+            projectLocation: result.data.projectLocation,
+            implementingOffice: result.data.implementingOffice,
             district: result.data.district,
-            cmpdVersion: result.data.cmpdVersion
+            cmpdVersion: result.data.cmpdVersion,
+            settings: result.data.settings,
           });
         }
       }
@@ -356,11 +384,31 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
     }
   };
 
+  const exportBackupCalculation = () => {
+    if (!calcRunData || !calcRunData.takeoffLines || calcRunData.takeoffLines.length === 0) {
+      alert('No takeoff data available for backup export.');
+      return;
+    }
+
+    if (!projectInfo) {
+      alert('Project info is still loading. Please try again.');
+      return;
+    }
+
+    exportBackupCalculationPdf({
+      project: projectInfo,
+      calcRun: {
+        runId: calcRunData.runId,
+        timestamp: calcRunData.timestamp,
+        takeoffLines: calcRunData.takeoffLines,
+        summary: calcRunData.summary,
+      },
+      boqLines,
+    });
+  };
+
   const exportToPDF = async () => {
     if (boqLines.length === 0) return;
-
-    const jsPDF = (await import('jspdf')).default;
-    const { default: autoTable } = await import('jspdf-autotable');
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
@@ -824,6 +872,16 @@ export default function BOQViewer({ projectId, takeoffLines }: BOQViewerProps) {
                 Save BOQ to Database
               </button>
             )}
+            <button
+              onClick={exportBackupCalculation}
+              disabled={boqLines.length === 0 || !calcRunData?.takeoffLines?.length}
+              className="px-4 py-3 bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:bg-gray-400 font-medium flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v8m4-4H8m9 6H7a2 2 0 01-2-2V6a2 2 0 012-2h6l4 4v10a2 2 0 01-2 2z" />
+              </svg>
+              Export Backup Calculation PDF
+            </button>
             <button
               onClick={exportToPDF}
               disabled={boqLines.length === 0}
