@@ -22,20 +22,26 @@ export async function GET(
     
     console.log('[Cost Estimate Detail] Fetching estimate:', estimateId);
     
-    // Validate ObjectId format
-    if (!estimateId || estimateId.length !== 24) {
-      console.error('[Cost Estimate Detail] Invalid ObjectId format:', estimateId);
+    await dbConnect();
+
+    const isObjectId = /^[a-fA-F0-9]{24}$/.test(estimateId);
+    const isEstimateNumber = /^EST-\d+$/i.test(estimateId);
+
+    if (!isObjectId && !isEstimateNumber) {
+      console.error('[Cost Estimate Detail] Invalid estimate identifier:', estimateId);
       return NextResponse.json(
         { error: 'Invalid estimate ID format' },
         { status: 400 }
       );
     }
-    
-    await dbConnect();
-    
-    // Fetch estimate with populated references
-    const estimate = await CostEstimate.findById(estimateId)
+
+    const estimateQuery = isObjectId
+      ? CostEstimate.findById(estimateId)
+      : CostEstimate.findOne({ estimateNumber: estimateId });
+
+    const estimate = await estimateQuery
       .populate('projectId', 'name projectName projectLocation district')
+      .populate('takeoffVersionId', 'versionNumber versionLabel versionType boqLineCount')
       .lean();
     
     if (!estimate) {
@@ -56,32 +62,7 @@ export async function GET(
       } : null
     };
     
-    // Conditionally populate takeoffVersionId only if it exists
-    if (estimate.takeoffVersionId) {
-      const estimateWithTakeoff = await CostEstimate.findById(estimateId)
-        .populate('projectId', 'name projectName projectLocation district')
-        .populate('takeoffVersionId', 'versionNumber versionLabel versionType boqLineCount')
-        .lean();
-      
-      if (estimateWithTakeoff) {
-        const formattedWithTakeoff = {
-          ...estimateWithTakeoff,
-          name: estimateWithTakeoff.estimateName,
-          project: estimateWithTakeoff.projectId && typeof estimateWithTakeoff.projectId === 'object' && '_id' in estimateWithTakeoff.projectId ? {
-            _id: estimateWithTakeoff.projectId._id,
-            name: (estimateWithTakeoff.projectId as any).name || (estimateWithTakeoff.projectId as any).projectName
-          } : null
-        };
-        
-        console.log('[Cost Estimate Detail] Estimate loaded with takeoff version');
-        return NextResponse.json({
-          success: true,
-          data: formattedWithTakeoff
-        });
-      }
-    }
-    
-    console.log('[Cost Estimate Detail] Estimate loaded (no takeoff version)');
+    console.log('[Cost Estimate Detail] Estimate loaded');
     return NextResponse.json({
       success: true,
       data: formattedEstimate
@@ -113,9 +94,11 @@ export async function DELETE(
     
     console.log('[Cost Estimate Delete] Deleting estimate:', estimateId);
     
-    // Validate ObjectId format
-    if (!estimateId || estimateId.length !== 24) {
-      console.error('[Cost Estimate Delete] Invalid ObjectId format:', estimateId);
+    const isObjectId = /^[a-fA-F0-9]{24}$/.test(estimateId);
+    const isEstimateNumber = /^EST-\d+$/i.test(estimateId);
+
+    if (!isObjectId && !isEstimateNumber) {
+      console.error('[Cost Estimate Delete] Invalid estimate identifier:', estimateId);
       return NextResponse.json(
         { error: 'Invalid estimate ID format' },
         { status: 400 }
@@ -125,7 +108,9 @@ export async function DELETE(
     await dbConnect();
     
     // Check if estimate exists
-    const estimate = await CostEstimate.findById(estimateId);
+    const estimate = isObjectId
+      ? await CostEstimate.findById(estimateId)
+      : await CostEstimate.findOne({ estimateNumber: estimateId });
     
     if (!estimate) {
       console.error('[Cost Estimate Delete] Estimate not found:', estimateId);
@@ -136,7 +121,11 @@ export async function DELETE(
     }
     
     // Delete the estimate
-    await CostEstimate.findByIdAndDelete(estimateId);
+    if (isObjectId) {
+      await CostEstimate.findByIdAndDelete(estimateId);
+    } else {
+      await CostEstimate.findOneAndDelete({ estimateNumber: estimateId });
+    }
     
     console.log('[Cost Estimate Delete] Estimate deleted successfully:', estimateId);
     return NextResponse.json({

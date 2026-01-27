@@ -85,6 +85,12 @@ export default function CostEstimatePage() {
 
   const loadEstimate = useCallback(async () => {
     try {
+      if (typeof params.id !== 'string' || params.id.length === 0) {
+        console.error('[Page] Invalid estimate ID param:', params.id);
+        setLoading(false);
+        return;
+      }
+
       console.log('[Page] Loading estimate ID:', params.id);
       const res = await fetch(`/api/cost-estimates/${params.id}`);
       console.log('[Page] Response status:', res.status, res.statusText);
