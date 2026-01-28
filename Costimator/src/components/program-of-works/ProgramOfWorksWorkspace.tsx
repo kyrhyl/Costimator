@@ -6,7 +6,6 @@ import FinancialSummaryCard from './FinancialSummaryCard';
 import DescriptionOfWorksTable, { type WorksPart } from './DescriptionOfWorksTable';
 import EquipmentRequirements, { type Equipment } from './EquipmentRequirements';
 import BreakdownOfExpenditures, { type ExpenditureBreakdown } from './BreakdownOfExpenditures';
-import DigitalSignOffs, { type Signatory } from './DigitalSignOffs';
 
 interface ProgramOfWorksWorkspaceProps {
   // Project Information
@@ -38,16 +37,11 @@ interface ProgramOfWorksWorkspaceProps {
   // Expenditure Breakdown
   expenditureBreakdown: ExpenditureBreakdown;
 
-  // Signatories
-  signatories: Signatory[];
-
   // Callbacks
   onPartClick?: (part: string) => void;
   onAddEquipment?: () => void;
   onEditEquipment?: (equipmentId: string) => void;
   onRemoveEquipment?: (equipmentId: string) => void;
-  onApproveSignatory?: (signatoryId: string) => void;
-  onRejectSignatory?: (signatoryId: string) => void;
   onExportPDF?: () => void;
   onSaveChanges?: () => void;
 }
@@ -68,13 +62,10 @@ export default function ProgramOfWorksWorkspace({
   worksParts,
   equipment,
   expenditureBreakdown,
-  signatories,
   onPartClick,
   onAddEquipment,
   onEditEquipment,
   onRemoveEquipment,
-  onApproveSignatory,
-  onRejectSignatory,
   onExportPDF,
   onSaveChanges,
 }: ProgramOfWorksWorkspaceProps) {
@@ -145,50 +136,54 @@ export default function ProgramOfWorksWorkspace({
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {/* Top Section: Project Details + Financial Summary */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ProjectDetailsCard
-            projectName={projectName}
-            implementingOffice={implementingOffice}
-            location={location}
-            district={district}
-            fundSource={fundSource}
-            workableDays={workableDays}
-            unworkableDays={unworkableDays}
-            totalDuration={totalDuration}
-            startDate={startDate}
-            endDate={endDate}
-          />
-          <FinancialSummaryCard
-            allottedAmount={allottedAmount}
-            budgetBreakdown={budgetBreakdown}
-          />
-        </div>
+        <section id="pow-overview" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div id="pow-project-details">
+            <ProjectDetailsCard
+              projectName={projectName}
+              implementingOffice={implementingOffice}
+              location={location}
+              district={district}
+              fundSource={fundSource}
+              workableDays={workableDays}
+              unworkableDays={unworkableDays}
+              totalDuration={totalDuration}
+              startDate={startDate}
+              endDate={endDate}
+            />
+          </div>
+          <div id="pow-financial-summary">
+            <FinancialSummaryCard
+              allottedAmount={allottedAmount}
+              budgetBreakdown={budgetBreakdown}
+            />
+          </div>
+        </section>
 
         {/* Middle Section: Description of Works Table */}
-        <DescriptionOfWorksTable
-          parts={worksParts}
-          onPartClick={onPartClick}
-        />
+        <section id="pow-description">
+          <DescriptionOfWorksTable
+            parts={worksParts}
+            onPartClick={onPartClick}
+          />
+        </section>
 
         {/* Bottom Row: Equipment + Breakdown */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <EquipmentRequirements
-            equipment={equipment}
-            onAdd={onAddEquipment}
-            onEdit={onEditEquipment}
-            onRemove={onRemoveEquipment}
-          />
-          <BreakdownOfExpenditures
-            breakdown={expenditureBreakdown}
-          />
+          <section id="pow-equipment">
+            <EquipmentRequirements
+              equipment={equipment}
+              onAdd={onAddEquipment}
+              onEdit={onEditEquipment}
+              onRemove={onRemoveEquipment}
+            />
+          </section>
+          <section id="pow-expenditure">
+            <BreakdownOfExpenditures
+              breakdown={expenditureBreakdown}
+            />
+          </section>
         </div>
 
-        {/* Digital Sign-Offs Section */}
-        <DigitalSignOffs
-          signatories={signatories}
-          onApprove={onApproveSignatory}
-          onReject={onRejectSignatory}
-        />
       </div>
     </div>
   );

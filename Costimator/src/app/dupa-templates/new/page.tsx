@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Combobox from '@/components/Combobox';
 
 interface LaborEntry {
   designation: string;
@@ -51,6 +52,21 @@ export default function NewDUPATemplatePage() {
   const [availableParts, setAvailableParts] = useState<string[]>([]);
   const [selectedPart, setSelectedPart] = useState<string>('');
   const [loadingOptions, setLoadingOptions] = useState(true);
+  const [baseEquipmentOptions, setBaseEquipmentOptions] = useState<Array<{ _id: string; description: string }>>([]);
+  const [baseMaterialOptions, setBaseMaterialOptions] = useState<Array<{ materialCode: string; description: string; unit: string }>>([]);
+  const [equipmentSearchLoading, setEquipmentSearchLoading] = useState(false);
+  const [materialSearchLoading, setMaterialSearchLoading] = useState(false);
+
+  const equipmentDropdownOptions = equipmentOptions.map((opt) => ({
+    value: opt._id,
+    label: opt.description,
+  }));
+  const materialDropdownOptions = materialOptions.map((opt) => ({
+    value: opt.materialCode,
+    label: opt.description,
+  }));
+  const equipmentPlaceholder = loadingOptions ? 'Loading equipment...' : 'Search equipment';
+  const materialPlaceholder = loadingOptions ? 'Loading materials...' : 'Search material';
 
   // Filtered pay items based on selected part
   const filteredPayItems = selectedPart 
@@ -75,14 +91,18 @@ export default function NewDUPATemplatePage() {
         ]);
         const [eqJson, matJson, payJson] = await Promise.all([eqRes.json(), matRes.json(), payRes.json()]);
         if (eqJson.success) {
-          setEquipmentOptions(eqJson.data.map((e: any) => ({ _id: e._id, description: e.description })));
+          const options = eqJson.data.map((e: any) => ({ _id: e._id, description: e.description }));
+          setEquipmentOptions(options);
+          setBaseEquipmentOptions(options);
         }
         if (matJson.success) {
-          setMaterialOptions(matJson.data.map((m: any) => ({ 
+          const options = matJson.data.map((m: any) => ({ 
             materialCode: m.materialCode, 
             description: m.materialDescription, 
             unit: m.unit 
-          })));
+          }));
+          setMaterialOptions(options);
+          setBaseMaterialOptions(options);
         }
         if (payJson.success) {
           const payItems = payJson.data.map((p: any) => ({ 
@@ -202,6 +222,54 @@ export default function NewDUPATemplatePage() {
     setPayItemNumber('');
     setPayItemDescription('');
     setUnitOfMeasurement('');
+  };
+
+  const handleEquipmentSearch = async (query: string) => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length < 2) {
+      setEquipmentOptions(baseEquipmentOptions);
+      setEquipmentSearchLoading(false);
+      return;
+    }
+
+    setEquipmentSearchLoading(true);
+    try {
+      const response = await fetch(`/api/master/equipment?search=${encodeURIComponent(trimmedQuery)}`);
+      const data = await response.json();
+      if (data.success) {
+        setEquipmentOptions(data.data.map((e: any) => ({ _id: e._id, description: e.description })));
+      }
+    } catch (error) {
+      console.error('Failed to search equipment', error);
+    } finally {
+      setEquipmentSearchLoading(false);
+    }
+  };
+
+  const handleMaterialSearch = async (query: string) => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length < 2) {
+      setMaterialOptions(baseMaterialOptions);
+      setMaterialSearchLoading(false);
+      return;
+    }
+
+    setMaterialSearchLoading(true);
+    try {
+      const response = await fetch(`/api/master/materials?search=${encodeURIComponent(trimmedQuery)}`);
+      const data = await response.json();
+      if (data.success) {
+        setMaterialOptions(data.data.map((m: any) => ({
+          materialCode: m.materialCode,
+          description: m.materialDescription,
+          unit: m.unit,
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to search materials', error);
+    } finally {
+      setMaterialSearchLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -603,29 +671,29 @@ export default function NewDUPATemplatePage() {
                     {equipmentTemplate.map((equip, index) => (
                       <tr key={index}>
                         <td className="px-4 py-2">
-                          {loadingOptions ? (
-                            <div className="text-gray-500">Loading equipment...</div>
-                          ) : (
-                            <select
-                              value={equip.equipmentId || ''}
-                              onChange={(e) => {
-                                const selected = equipmentOptions.find(o => o._id === e.target.value);
-                                const updated = [...equipmentTemplate];
-                                updated[index] = {
-                                  ...updated[index],
-                                  equipmentId: e.target.value,
-                                  description: selected ? selected.description : ''
-                                };
-                                setEquipmentTemplate(updated);
-                              }}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            >
-                              <option value="">Select equipment</option>
-                              {equipmentOptions.map((opt) => (
-                                <option key={opt._id} value={opt._id}>{opt.description}</option>
-                              ))}
-                            </select>
-                          )}
+                          <Combobox
+                            value={equip.equipmentId || ''}
+                            selectedLabel={equip.description}
+                            options={equipmentDropdownOptions}
+                            placeholder={equipmentPlaceholder}
+                            disabled={loadingOptions}
+                            loading={equipmentSearchLoading}
+                            clearable
+                            onSearch={handleEquipmentSearch}
+                            className="text-sm"
+                            onChange={(selectedValue) => {
+                              const selected = equipmentOptions.find((opt) => opt._id === selectedValue);
+                              const updated = [...equipmentTemplate];
+                              updated[index] = {
+                                ...updated[index],
+                                equipmentId: selectedValue,
+                                description: selectedValue
+                                  ? selected?.description || updated[index].description
+                                  : '',
+                              };
+                              setEquipmentTemplate(updated);
+                            }}
+                          />
                         </td>
                         <td className="px-4 py-2">
                           <input
@@ -706,30 +774,30 @@ export default function NewDUPATemplatePage() {
                     {materialTemplate.map((material, index) => (
                       <tr key={index}>
                         <td className="px-4 py-2" colSpan={2}>
-                          {loadingOptions ? (
-                            <div className="text-gray-500">Loading materials...</div>
-                          ) : (
-                            <select
-                              value={material.materialCode || ''}
-                              onChange={(e) => {
-                                const selected = materialOptions.find(o => o.materialCode === e.target.value);
-                                const updated = [...materialTemplate];
-                                updated[index] = {
-                                  ...updated[index],
-                                  materialCode: e.target.value,
-                                  description: selected ? selected.description : 'N/A',
-                                  unit: selected ? selected.unit : ''
-                                };
-                                setMaterialTemplate(updated);
-                              }}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            >
-                              <option value="">Select material</option>
-                              {materialOptions.map((opt) => (
-                                <option key={opt.materialCode} value={opt.materialCode}>{opt.description}</option>
-                              ))}
-                            </select>
-                          )}
+                          <Combobox
+                            value={material.materialCode || ''}
+                            selectedLabel={material.description}
+                            options={materialDropdownOptions}
+                            placeholder={materialPlaceholder}
+                            disabled={loadingOptions}
+                            loading={materialSearchLoading}
+                            clearable
+                            onSearch={handleMaterialSearch}
+                            className="text-sm"
+                            onChange={(selectedValue) => {
+                              const selected = materialOptions.find((opt) => opt.materialCode === selectedValue);
+                              const updated = [...materialTemplate];
+                              updated[index] = {
+                                ...updated[index],
+                                materialCode: selectedValue,
+                                description: selectedValue
+                                  ? selected?.description || updated[index].description
+                                  : '',
+                                unit: selectedValue ? selected?.unit || updated[index].unit : '',
+                              };
+                              setMaterialTemplate(updated);
+                            }}
+                          />
                         </td>
                         <td className="px-4 py-2">
                           <input

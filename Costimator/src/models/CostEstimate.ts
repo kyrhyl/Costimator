@@ -68,6 +68,8 @@ export interface IComputedMaterial {
   haulingCost: number;    // SNAPSHOT
   unitCost: number;       // basePrice + haulingCost
   amount: number;
+  priceSource?: 'cmpd' | 'canvass' | 'missing';
+  requiresCanvass?: boolean;
 }
 
 export interface IEstimateLine {
@@ -230,6 +232,8 @@ const ComputedMaterialSchema = new Schema({
   haulingCost: { type: Number, required: true },
   unitCost: { type: Number, required: true },
   amount: { type: Number, required: true },
+  priceSource: { type: String, enum: ['cmpd', 'canvass', 'missing'], default: 'cmpd' },
+  requiresCanvass: { type: Boolean, default: false },
 }, { _id: false });
 
 const EstimateLineSchema = new Schema({
@@ -529,6 +533,13 @@ CostEstimateSchema.methods.submit = async function(preparedBy: string): Promise<
   if (this.status !== 'draft') {
     throw new Error('Only draft estimates can be submitted');
   }
+
+  const hasMissingPrices = (this.estimateLines || []).some((line: any) =>
+    (line.materialItems || []).some((item: any) => item.requiresCanvass)
+  );
+  if (hasMissingPrices) {
+    throw new Error('Cannot submit estimate with missing CMPD/canvass prices. Add canvass prices first.');
+  }
   
   this.status = 'submitted';
   this.preparedBy = preparedBy;
@@ -542,6 +553,13 @@ CostEstimateSchema.methods.submit = async function(preparedBy: string): Promise<
 CostEstimateSchema.methods.approve = async function(approvedBy: string): Promise<void> {
   if (this.status !== 'submitted') {
     throw new Error('Only submitted estimates can be approved');
+  }
+
+  const hasMissingPrices = (this.estimateLines || []).some((line: any) =>
+    (line.materialItems || []).some((item: any) => item.requiresCanvass)
+  );
+  if (hasMissingPrices) {
+    throw new Error('Cannot approve estimate with missing CMPD/canvass prices. Add canvass prices first.');
   }
   
   this.status = 'approved';

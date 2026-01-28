@@ -32,6 +32,9 @@ export default function CreateEstimateModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [unmappedLines, setUnmappedLines] = useState<string[]>([]);
+  const [missingMaterialPrices, setMissingMaterialPrices] = useState<
+    { materialCode: string; description: string; unit: string }[]
+  >([]);
   const [locations, setLocations] = useState<string[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [cmpdVersions, setCmpdVersions] = useState<string[]>([]);
@@ -130,6 +133,7 @@ export default function CreateEstimateModal({
     setLoading(true);
     setError('');
     setUnmappedLines([]);
+    setMissingMaterialPrices([]);
 
     try {
       const payload: any = {
@@ -158,9 +162,18 @@ export default function CreateEstimateModal({
         throw new Error(data.error || 'Failed to create estimate');
       }
 
-      if (data.unmappedLines && data.unmappedLines.length > 0) {
+      const hasUnmappedLines = Array.isArray(data.unmappedLines) && data.unmappedLines.length > 0;
+      const hasMissingPrices = Array.isArray(data.missingMaterialPrices) && data.missingMaterialPrices.length > 0;
+
+      if (hasUnmappedLines) {
         setUnmappedLines(data.unmappedLines);
-      } else {
+      }
+
+      if (hasMissingPrices) {
+        setMissingMaterialPrices(data.missingMaterialPrices);
+      }
+
+      if (!hasUnmappedLines && !hasMissingPrices) {
         onSuccess(data.estimateId);
       }
     } catch (err: any) {
@@ -187,6 +200,26 @@ export default function CreateEstimateModal({
             <ul className="list-disc ml-6 mt-2">
               {unmappedLines.map((line) => (
                 <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <button
+              onClick={() => onSuccess('')}
+              className="mt-3 bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
+            >
+              Continue Anyway
+            </button>
+          </div>
+        )}
+
+        {missingMaterialPrices.length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4">
+            <p className="font-semibold">Warning: Missing CMPD prices (set to zero):</p>
+            <p className="text-sm mt-1">Add canvass prices before final approval.</p>
+            <ul className="list-disc ml-6 mt-2">
+              {missingMaterialPrices.map((item) => (
+                <li key={`${item.materialCode}-${item.description}`}>
+                  {item.materialCode} - {item.description} ({item.unit})
+                </li>
               ))}
             </ul>
             <button
@@ -322,10 +355,10 @@ export default function CreateEstimateModal({
               <div className="w-full border rounded px-3 py-2 text-gray-400">
                 Loading CMPD versions...
               </div>
-            ) : cmpdVersions.length === 0 ? (
-              <div className="text-sm text-yellow-600 p-2 bg-yellow-50 rounded">
-                No CMPD versions found. Material prices will use base prices.
-              </div>
+              ) : cmpdVersions.length === 0 ? (
+                <div className="text-sm text-yellow-600 p-2 bg-yellow-50 rounded">
+                  No CMPD versions found. Materials without CMPD or canvass prices will be zero-priced.
+                </div>
             ) : (
               <select
                 required

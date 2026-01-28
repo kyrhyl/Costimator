@@ -18,6 +18,7 @@ const MaterialPriceSchema = z.object({
   unit: z.string().min(1, 'Unit is required'),
   location: z.string().min(1, 'Location is required'),
   unitCost: z.number().min(0, 'Unit cost must be non-negative'),
+  priceSource: z.enum(['cmpd', 'canvass']).optional(),
   brand: z.string().optional(),
   specification: z.string().optional(),
   supplier: z.string().optional(),
@@ -56,7 +57,8 @@ function validateInput<T>(schema: z.ZodSchema<T>, data: unknown) {
  * - materialCode: Filter by material code (exact match)
  * - location: Filter by location (partial match)
  * - district: Filter by district (partial match)
- * - cmpd_version: Filter by CMPD version (exact match)
+  * - cmpd_version: Filter by CMPD version (exact match)
+  * - priceSource: Filter by price source (cmpd or canvass)
  * - isActive: Filter by active status (true/false)
  * - search: Search in description (partial match)
  * - dateFrom: Filter prices from this date (ISO format)
@@ -74,6 +76,7 @@ export async function GET(request: NextRequest) {
     const location = searchParams.get('location');
     const district = searchParams.get('district');
     const cmpd_version = searchParams.get('cmpd_version');
+    const priceSource = searchParams.get('priceSource');
     const isActive = searchParams.get('isActive');
     const search = searchParams.get('search');
     const dateFrom = searchParams.get('dateFrom');
@@ -98,6 +101,10 @@ export async function GET(request: NextRequest) {
     
     if (cmpd_version) {
       query.cmpd_version = cmpd_version;
+    }
+
+    if (priceSource) {
+      query.priceSource = priceSource;
     }
     
     if (isActive !== null && isActive !== undefined && isActive !== 'all') {

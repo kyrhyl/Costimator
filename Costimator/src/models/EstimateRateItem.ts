@@ -39,6 +39,8 @@ export interface IEstimateMaterialItem {
   haulingIncluded?: boolean;
   basePrice?: number;
   haulingCost?: number;
+  priceSource?: 'cmpd' | 'canvass' | 'missing';
+  requiresCanvass?: boolean;
 }
 
 export interface IEstimateCostBreakdown {
@@ -145,7 +147,9 @@ const EstimateMaterialItemSchema = new Schema({
   amount: { type: Number, required: true, min: 0 },
   haulingIncluded: { type: Boolean, default: false },
   basePrice: { type: Number, min: 0 },
-  haulingCost: { type: Number, min: 0 }
+  haulingCost: { type: Number, min: 0 },
+  priceSource: { type: String, enum: ['cmpd', 'canvass', 'missing'], default: 'cmpd' },
+  requiresCanvass: { type: Boolean, default: false }
 }, { _id: false });
 
 const EstimateCostBreakdownSchema = new Schema({

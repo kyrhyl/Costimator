@@ -706,6 +706,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 ) : (
                   <TakeoffViewer
                     projectId={id}
+                    latestCalcRun={latestCalcRun}
                     onTakeoffGenerated={async () => {
                       await fetchLatestTakeoffData();
                     }}

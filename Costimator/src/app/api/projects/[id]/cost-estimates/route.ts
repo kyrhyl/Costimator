@@ -60,6 +60,24 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const resolvedDistrict = body.district || project.district;
+    if (!resolvedDistrict) {
+      console.error('[Cost Estimate] Missing district');
+      return NextResponse.json(
+        { error: 'district is required for CMPD pricing' },
+        { status: 400 }
+      );
+    }
+
+    const resolvedCmpdVersion = body.cmpdVersion || project.cmpdVersion;
+    if (!resolvedCmpdVersion) {
+      console.error('[Cost Estimate] Missing cmpdVersion');
+      return NextResponse.json(
+        { error: 'cmpdVersion is required for CMPD pricing' },
+        { status: 400 }
+      );
+    }
     
     let boqLines: any[] = [];
     let takeoffVersionId: mongoose.Types.ObjectId | null = null;
@@ -202,8 +220,8 @@ export async function POST(
     console.log('[Cost Estimate] Starting calculation...');
     console.log('[Cost Estimate] Calculation config:', {
       location: body.location,
-      district: body.district || project.district,
-      cmpdVersion: body.cmpdVersion || project.cmpdVersion,
+      district: resolvedDistrict,
+      cmpdVersion: resolvedCmpdVersion,
     });
     
     const calculationResult = await calculateEstimate(
@@ -211,8 +229,8 @@ export async function POST(
       {
         takeoffVersionId: takeoffVersionId?.toString() || projectId,
         location: body.location,
-        district: body.district || project.district,
-        cmpdVersion: body.cmpdVersion || project.cmpdVersion,
+        district: resolvedDistrict,
+        cmpdVersion: resolvedCmpdVersion,
         ocmPercentage: body.ocmPercentage ?? 12,
         cpPercentage: body.cpPercentage ?? 10,
         vatPercentage: body.vatPercentage ?? 12,
@@ -236,8 +254,8 @@ export async function POST(
       
       // Pricing configuration
       location: body.location,
-      district: body.district || project.district,
-      cmpdVersion: body.cmpdVersion || project.cmpdVersion || 'Material.basePrice',
+      district: resolvedDistrict,
+      cmpdVersion: resolvedCmpdVersion,
       effectiveDate: body.effectiveDate || new Date(),
       
       // Markup percentages (use the actual percentages calculated by estimateCalculator)
@@ -272,10 +290,16 @@ export async function POST(
       await project.save();
     }
     
+    const warningMessage = calculationResult.missingMaterialPrices.length > 0
+      ? 'Estimate created with missing CMPD prices. Add canvass prices to finalize.'
+      : undefined;
+
     return NextResponse.json({
       success: true,
       data: costEstimate,
       unmappedLines: calculationResult.unmappedLines,
+      missingMaterialPrices: calculationResult.missingMaterialPrices,
+      warning: warningMessage,
       message: 'Cost estimate created successfully'
     }, { status: 201 });
     

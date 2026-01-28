@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { TakeoffLine } from '@/types';
 import { classifyDPWHItem, sortDPWHParts } from '@/lib/dpwhClassification';
 import { exportBackupCalculationPdf } from '@/lib/reports/backupCalculationPdf';
 
 interface TakeoffViewerProps {
   projectId: string;
+  latestCalcRun?: CalcRun | null;
   onTakeoffGenerated?: (takeoffLines: TakeoffLine[]) => void;
 }
 
@@ -45,7 +46,7 @@ interface CalcRun {
   summary: TakeoffSummary;
 }
 
-export default function TakeoffViewer({ projectId, onTakeoffGenerated }: TakeoffViewerProps) {
+export default function TakeoffViewer({ projectId, latestCalcRun, onTakeoffGenerated }: TakeoffViewerProps) {
   const [takeoffLines, setTakeoffLines] = useState<TakeoffLine[]>([]);
   const [summary, setSummary] = useState<TakeoffSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,14 +60,41 @@ export default function TakeoffViewer({ projectId, onTakeoffGenerated }: Takeoff
   const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
   const [latestRunId, setLatestRunId] = useState<string | null>(null);
   const [latestRunTimestamp, setLatestRunTimestamp] = useState<string | null>(null);
+  const fetchStateRef = useRef({
+    projectLoading: false,
+    lastProjectAt: 0,
+  });
 
-  // Load latest CalcRun on mount
+  // Load project info on mount
   useEffect(() => {
-    loadLatestCalcRun();
     fetchProjectInfo();
   }, [projectId]);
 
+  useEffect(() => {
+    if (latestCalcRun) {
+      setTakeoffLines(latestCalcRun.takeoffLines || []);
+      setSummary(latestCalcRun.summary || null);
+      setLastCalculated(latestCalcRun.timestamp || null);
+      setLatestRunId(latestCalcRun.runId || null);
+      setLatestRunTimestamp(latestCalcRun.timestamp || null);
+      setHasCalcRun(true);
+    } else {
+      setTakeoffLines([]);
+      setSummary(null);
+      setLastCalculated(null);
+      setLatestRunId(null);
+      setLatestRunTimestamp(null);
+      setHasCalcRun(false);
+    }
+  }, [latestCalcRun]);
+
   const fetchProjectInfo = async () => {
+    const now = Date.now();
+    if (fetchStateRef.current.projectLoading || now - fetchStateRef.current.lastProjectAt < 3000) {
+      return;
+    }
+
+    fetchStateRef.current.projectLoading = true;
     try {
       const res = await fetch(`/api/projects/${projectId}`);
       if (res.ok) {
@@ -84,36 +112,9 @@ export default function TakeoffViewer({ projectId, onTakeoffGenerated }: Takeoff
       }
     } catch (err) {
       console.error('Failed to load project info:', err);
-    }
-  };
-
-  const loadLatestCalcRun = async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/calcruns/latest`);
-      if (res.ok) {
-        const payload = await res.json();
-        const data: CalcRun | null = payload?.data || payload || null;
-
-        if (data) {
-          setTakeoffLines(data.takeoffLines || []);
-          setSummary(data.summary || null);
-          setLastCalculated(data.timestamp || null);
-          setLatestRunId(data.runId || null);
-          setLatestRunTimestamp(data.timestamp || null);
-          setHasCalcRun(true);
-
-          if (onTakeoffGenerated && data.takeoffLines) {
-            onTakeoffGenerated(data.takeoffLines);
-          }
-        } else {
-          setHasCalcRun(false);
-        }
-      } else {
-        setHasCalcRun(false);
-      }
-    } catch (err) {
-      console.error('Failed to load latest calc run:', err);
-      setHasCalcRun(false);
+    } finally {
+      fetchStateRef.current.projectLoading = false;
+      fetchStateRef.current.lastProjectAt = Date.now();
     }
   };
 

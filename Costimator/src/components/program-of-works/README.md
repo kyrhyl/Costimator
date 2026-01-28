@@ -9,7 +9,6 @@ A professional DPWH-styled workspace for displaying program of works, budget bre
 - **Description of Works Table**: Parts A-E summary with "As Submitted" vs "As Evaluated" columns and variance indicators
 - **Equipment Requirements**: Visual display of required equipment with quantity
 - **Breakdown of Expenditures**: Detailed cost breakdown (Labor, Materials, Equipment, OCM, Profit, VAT)
-- **Digital Sign-Offs**: Approval workflow with signatory cards showing status (Signed/Pending/Action Required)
 
 ## Installation
 
@@ -28,7 +27,7 @@ The components are already installed in `src/components/program-of-works/`. Make
 
 ```tsx
 import { ProgramOfWorksWorkspace } from '@/components/program-of-works';
-import type { WorksPart, Equipment, ExpenditureBreakdown, Signatory } from '@/components/program-of-works';
+import type { WorksPart, Equipment, ExpenditureBreakdown } from '@/components/program-of-works';
 
 export default function MyPage() {
   return (
@@ -83,23 +82,9 @@ export default function MyPage() {
         totalEstimatedCost: 50942400.00,
       }}
       
-      // Signatories
-      signatories={[
-        {
-          id: '1',
-          name: 'Engr. Juan dela Cruz',
-          role: 'Project Engineer',
-          status: 'signed',
-          signedDate: '2026-01-20',
-          initials: 'JD',
-        },
-        // ... more signatories
-      ]}
-      
       // Event Handlers
       onPartClick={(part) => console.log('Clicked:', part)}
       onAddEquipment={() => console.log('Add equipment')}
-      onApproveSignatory={(id) => console.log('Approve:', id)}
       onSaveChanges={async () => {
         // Save to API
       }}
@@ -150,13 +135,10 @@ import {
 | `worksParts` | `WorksPart[]` | Yes | Array of BOQ parts (A-E) |
 | `equipment` | `Equipment[]` | Yes | Required equipment list |
 | `expenditureBreakdown` | `ExpenditureBreakdown` | Yes | Detailed cost breakdown |
-| `signatories` | `Signatory[]` | Yes | Approval signatories |
 | `onPartClick` | `function` | No | Callback when part is clicked |
 | `onAddEquipment` | `function` | No | Callback to add equipment |
 | `onEditEquipment` | `function` | No | Callback to edit equipment |
 | `onRemoveEquipment` | `function` | No | Callback to remove equipment |
-| `onApproveSignatory` | `function` | No | Callback to approve |
-| `onRejectSignatory` | `function` | No | Callback to reject |
 | `onExportPDF` | `function` | No | Callback to export PDF |
 | `onSaveChanges` | `function` | No | Callback to save changes |
 
@@ -190,15 +172,6 @@ type ExpenditureBreakdown = {
   totalEstimatedCost: number;
 };
 
-type Signatory = {
-  id: string;
-  name: string;
-  role: string;
-  status: 'signed' | 'pending' | 'can_sign';
-  signedDate?: string;      // ISO date string
-  avatar?: string;          // Image URL (optional)
-  initials?: string;        // e.g., "JD"
-};
 ```
 
 ## Example
@@ -249,7 +222,6 @@ export default function ProjectProgramOfWorks({ params }) {
 - **Currency Format**: Automatically formats to Philippine Peso (₱)
 - **Variance Indicators**: Shows green (↓) for savings, red (↑) for over-budget
 - **Interactive Charts**: Donut chart shows budget breakdown with tooltips
-- **Approval Workflow**: Progress bar shows approval status
 - **PDF Export**: Hook provided for custom PDF generation
 
 ## Future Enhancements

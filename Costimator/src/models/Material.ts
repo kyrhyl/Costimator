@@ -46,7 +46,7 @@ const MaterialSchema = new Schema<IMaterial>(
     },
     includeHauling: {
       type: Boolean,
-      default: true, // By default, include hauling cost
+      default: false, // Default to excluded
     },
     isActive: {
       type: Boolean,

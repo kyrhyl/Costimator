@@ -291,6 +291,7 @@ export async function POST(request: NextRequest) {
       location: validatedMetadata.location,
       district: validatedMetadata.district,
       unitCost: row.unitCost,
+      priceSource: 'cmpd',
       brand: row.brand || '',
       specification: row.specification || '',
       supplier: row.supplier || '',

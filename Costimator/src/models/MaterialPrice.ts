@@ -7,6 +7,7 @@ export interface IMaterialPrice extends Document {
   location: string;
   district?: string; // DPWH district (e.g., "DPWH-NCR-1st", "DPWH-CAR")
   unitCost: number;
+  priceSource?: 'cmpd' | 'canvass';
   brand?: string;
   specification?: string;
   supplier?: string;
@@ -45,6 +46,11 @@ const MaterialPriceSchema = new Schema<IMaterialPrice>(
       required: true,
       default: 0
     },
+    priceSource: {
+      type: String,
+      enum: ['cmpd', 'canvass'],
+      default: 'cmpd'
+    },
     brand: {
       type: String,
       default: ''
@@ -79,8 +85,8 @@ const MaterialPriceSchema = new Schema<IMaterialPrice>(
   }
 );
 
-// Compound index for unique material per location per CMPD version
-MaterialPriceSchema.index({ materialCode: 1, location: 1, cmpd_version: 1 }, { unique: true });
+// Compound index for unique material per location per CMPD version and source
+MaterialPriceSchema.index({ materialCode: 1, location: 1, cmpd_version: 1, priceSource: 1 }, { unique: true });
 MaterialPriceSchema.index({ description: 1 });
 MaterialPriceSchema.index({ location: 1 });
 MaterialPriceSchema.index({ district: 1, effectiveDate: -1 }); // For district-based price lookup

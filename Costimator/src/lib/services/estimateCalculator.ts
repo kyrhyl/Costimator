@@ -18,7 +18,7 @@ interface CalculateEstimateOptions {
   takeoffVersionId: string | mongoose.Types.ObjectId;
   location: string;
   district: string;
-  cmpdVersion?: string;  // When provided, will lookup MaterialPrice instead of Material.basePrice
+  cmpdVersion?: string;  // When provided, will lookup MaterialPrice for CMPD or canvass prices
   ocmPercentage?: number;  // Optional - will auto-calculate from project cost if not provided
   cpPercentage?: number;   // Optional - will auto-calculate from project cost if not provided
   vatPercentage?: number;  // Optional - defaults to 12%
@@ -32,6 +32,7 @@ interface EstimateResult {
   laborRateSnapshot: ILaborRateSnapshot;
   costSummary: ICostSummary;
   unmappedLines: string[];  // Pay item numbers without DUPA templates
+  missingMaterialPrices: { materialCode: string; description: string; unit: string }[];
   usedMarkups: {  // Actual percentages used in calculation
     ocmPercentage: number;
     cpPercentage: number;
@@ -152,24 +153,36 @@ export async function calculateEstimate(
     }
   }
 
-  const materialPriceMap = new Map<string, any>();
+  const materialPriceMap = new Map<string, { cmpd?: any; canvass?: any }>();
   if (options.cmpdVersion && options.location && materialCodes.size > 0) {
     const materialPrices = await MaterialPrice.find({
       materialCode: { $in: Array.from(materialCodes) },
       cmpd_version: options.cmpdVersion,
       location: options.location,
       isActive: true
-    }).lean();
+    }).sort({ effectiveDate: -1 }).lean();
 
     for (const price of materialPrices) {
       const key = `${price.materialCode}|${price.location}|${price.cmpd_version}`;
-      materialPriceMap.set(key, price);
+      const source = price.priceSource || 'cmpd';
+      const existing = materialPriceMap.get(key) || {};
+      if (source === 'canvass') {
+        if (!existing.canvass) {
+          existing.canvass = price;
+        }
+      } else {
+        if (!existing.cmpd) {
+          existing.cmpd = price;
+        }
+      }
+      materialPriceMap.set(key, existing);
     }
   }
 
   // 5. Process each BOQ line (first pass - calculate direct costs)
   const estimateLines: IEstimateLine[] = [];
   const unmappedLines: string[] = [];
+  const missingMaterialPrices = new Map<string, { materialCode: string; description: string; unit: string }>();
   let totalDirectCost = 0;
   
   for (const input of lineInputs) {
@@ -216,6 +229,19 @@ export async function calculateEstimate(
         materialPriceMap
       }
     );
+
+    for (const materialItem of computed.materialItems) {
+      if (materialItem.requiresCanvass) {
+        const key = `${materialItem.materialCode}|${materialItem.description}|${materialItem.unit}`;
+        if (!missingMaterialPrices.has(key)) {
+          missingMaterialPrices.set(key, {
+            materialCode: materialItem.materialCode,
+            description: materialItem.description,
+            unit: materialItem.unit
+          });
+        }
+      }
+    }
 
     totalDirectCost += computed.directCost * quantity;
     
@@ -297,6 +323,7 @@ export async function calculateEstimate(
       grandTotal,
       rateItemsCount: estimateLines.length
     },
+    missingMaterialPrices: Array.from(missingMaterialPrices.values()),
     usedMarkups: {
       ocmPercentage: ocmPercent,
       cpPercentage: cpPercent,
@@ -319,7 +346,7 @@ async function computeLineItemDirectCosts(
   lookup?: {
     equipmentMap: Map<string, any>;
     materialMap: Map<string, any>;
-    materialPriceMap: Map<string, any>;
+    materialPriceMap: Map<string, { cmpd?: any; canvass?: any }>;
   }
 ) {
   const equipmentMap = lookup?.equipmentMap ?? new Map<string, any>();
@@ -379,28 +406,40 @@ async function computeLineItemDirectCosts(
   const materialItems = [];
   for (const mat of dupaTemplate.materialTemplate || []) {
     let basePrice = 0;
+    let priceSource: 'cmpd' | 'canvass' | 'missing' = 'missing';
+    let requiresCanvass = false;
+    let hasPrice = false;
     const materialCode = mat.materialCode ? mat.materialCode.toString() : '';
     
     // Try CMPD price lookup first if version is provided
     if (cmpdVersion && location && materialCode) {
       const key = `${materialCode}|${location}|${cmpdVersion}`;
-      const cmpdPrice = materialPriceMap.get(key);
+      const priceEntry = materialPriceMap.get(key);
+      const cmpdPrice = priceEntry?.cmpd;
+      const canvassPrice = priceEntry?.canvass;
       if (cmpdPrice) {
         basePrice = cmpdPrice.unitCost;
+        priceSource = 'cmpd';
+        hasPrice = true;
+      } else if (canvassPrice) {
+        basePrice = canvassPrice.unitCost;
+        priceSource = 'canvass';
+        hasPrice = true;
       }
     }
-    
-    // Fallback to Material.basePrice if no CMPD price found
-    if (basePrice === 0) {
-      const material = materialMap.get(materialCode);
-      basePrice = material?.basePrice || 0;
+
+    if (!hasPrice) {
+      basePrice = 0;
+      priceSource = 'missing';
+      requiresCanvass = true;
     }
-    
+
     let unitCost = basePrice;
     
     // Add hauling if applicable
     const material = materialMap.get(materialCode);
-    if (material?.includeHauling !== false && haulingCostPerCuM > 0) {
+    const includeHauling = hasPrice && material?.includeHauling !== false && haulingCostPerCuM > 0;
+    if (includeHauling) {
       unitCost += haulingCostPerCuM;
     }
     
@@ -412,9 +451,11 @@ async function computeLineItemDirectCosts(
       unit: mat.unit,
       quantity: mat.quantity,
       basePrice,
-      haulingCost: material?.includeHauling !== false ? haulingCostPerCuM : 0,
+      haulingCost: includeHauling ? haulingCostPerCuM : 0,
       unitCost,
-      amount
+      amount,
+      priceSource,
+      requiresCanvass
     });
   }
   

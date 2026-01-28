@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ElementTemplatesEditor from '@/components/takeoff/ElementTemplatesEditor';
@@ -64,6 +64,7 @@ export default function TakeoffWorkspacePage() {
   const [activePart, setActivePart] = useState<DPWHPart>('D');
   const [activeTab, setActiveTab] = useState<TabType>('grid');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const fetchStateRef = useRef({ loading: false, lastFetchAt: 0 });
 
   const earthworksCategories = [
     {
@@ -128,6 +129,12 @@ export default function TakeoffWorkspacePage() {
   const recentEarthworkItems = earthworkItems.slice(-5).reverse();
 
   const fetchProject = useCallback(async () => {
+    const now = Date.now();
+    if (fetchStateRef.current.loading || now - fetchStateRef.current.lastFetchAt < 3000) {
+      return;
+    }
+
+    fetchStateRef.current.loading = true;
     try {
       const response = await fetch(`/api/projects/${projectId}`);
       const data = await response.json();
@@ -141,6 +148,8 @@ export default function TakeoffWorkspacePage() {
       setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
+      fetchStateRef.current.loading = false;
+      fetchStateRef.current.lastFetchAt = Date.now();
     }
   }, [projectId]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { ProgramOfWorksWorkspace } from '@/components/program-of-works';
-import type { WorksPart, Equipment, ExpenditureBreakdown, Signatory } from '@/components/program-of-works';
+import type { WorksPart, Equipment, ExpenditureBreakdown } from '@/components/program-of-works';
 
 export default function ProgramOfWorksExamplePage() {
   // Sample data - replace with actual data from your API
@@ -89,39 +89,6 @@ export default function ProgramOfWorksExamplePage() {
     totalEstimatedCost: 50942400.00,
   };
 
-  const sampleSignatories: Signatory[] = [
-    {
-      id: '1',
-      name: 'Engr. Juan dela Cruz',
-      role: 'Project Engineer',
-      status: 'signed',
-      signedDate: '2026-01-20',
-      initials: 'JD',
-    },
-    {
-      id: '2',
-      name: 'Engr. Maria Santos',
-      role: 'Cost Engineer',
-      status: 'signed',
-      signedDate: '2026-01-22',
-      initials: 'MS',
-    },
-    {
-      id: '3',
-      name: 'Engr. Pedro Reyes',
-      role: 'Chief Engineer',
-      status: 'can_sign',
-      initials: 'PR',
-    },
-    {
-      id: '4',
-      name: 'Dir. Antonio Garcia',
-      role: 'District Engineer',
-      status: 'pending',
-      initials: 'AG',
-    },
-  ];
-
   // Event handlers
   const handlePartClick = (part: string) => {
     console.log('Clicked on part:', part);
@@ -141,18 +108,6 @@ export default function ProgramOfWorksExamplePage() {
   const handleRemoveEquipment = (equipmentId: string) => {
     console.log('Remove equipment:', equipmentId);
     // Confirm and remove
-  };
-
-  const handleApproveSignatory = (signatoryId: string) => {
-    console.log('Approve signatory:', signatoryId);
-    // Call API to approve
-    alert(`Approved by signatory ${signatoryId}`);
-  };
-
-  const handleRejectSignatory = (signatoryId: string) => {
-    console.log('Reject signatory:', signatoryId);
-    // Call API to reject
-    alert(`Rejected by signatory ${signatoryId}`);
   };
 
   const handleExportPDF = () => {
@@ -199,16 +154,11 @@ export default function ProgramOfWorksExamplePage() {
       // Expenditure Breakdown
       expenditureBreakdown={sampleExpenditure}
       
-      // Signatories
-      signatories={sampleSignatories}
-      
       // Event Handlers
       onPartClick={handlePartClick}
       onAddEquipment={handleAddEquipment}
       onEditEquipment={handleEditEquipment}
       onRemoveEquipment={handleRemoveEquipment}
-      onApproveSignatory={handleApproveSignatory}
-      onRejectSignatory={handleRejectSignatory}
       onExportPDF={handleExportPDF}
       onSaveChanges={handleSaveChanges}
     />

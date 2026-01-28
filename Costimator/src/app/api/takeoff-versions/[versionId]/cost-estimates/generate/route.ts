@@ -168,32 +168,44 @@ export async function POST(
         // Process material items with district-specific pricing
         const materialItems = await Promise.all(
           (dupaTemplate.materialItems || []).map(async (item: any) => {
-            // Try to find material price with district + CMPD version
             let materialPrice = await MaterialPrice.findOne({
               materialCode: item.materialCode,
               district,
-              cmpdVersion,
-            }).lean();
-            
-            // Fallback: district only (latest)
-            if (!materialPrice) {
+              cmpd_version: cmpdVersion,
+              isActive: true,
+              $or: [
+                { priceSource: { $exists: false } },
+                { priceSource: 'cmpd' }
+              ]
+            })
+              .sort({ effectiveDate: -1 })
+              .lean();
+
+            let priceSource: 'cmpd' | 'canvass' | 'missing' = 'missing';
+            let requiresCanvass = false;
+
+            if (materialPrice) {
+              priceSource = materialPrice.priceSource || 'cmpd';
+            } else {
               materialPrice = await MaterialPrice.findOne({
                 materialCode: item.materialCode,
                 district,
+                cmpd_version: cmpdVersion,
+                isActive: true,
+                priceSource: 'canvass'
               })
                 .sort({ effectiveDate: -1 })
                 .lean();
+
+              if (materialPrice) {
+                priceSource = 'canvass';
+              }
             }
-            
-            // Fallback: base material price
+
             if (!materialPrice) {
-              materialPrice = await MaterialPrice.findOne({
-                materialCode: item.materialCode,
-              })
-                .sort({ effectiveDate: -1 })
-                .lean();
+              requiresCanvass = true;
             }
-            
+
             const unitCost = materialPrice?.unitCost || 0;
             const quantity = item.quantity || 0;
             
@@ -207,6 +219,8 @@ export async function POST(
               haulingIncluded: false,
               basePrice: unitCost,
               haulingCost: 0,
+              priceSource,
+              requiresCanvass,
             };
           })
         );

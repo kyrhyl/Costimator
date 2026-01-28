@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Combobox from '@/components/Combobox';
 
 interface LaborEntry {
   designation: string;
@@ -29,6 +30,18 @@ export default function EditDUPATemplatePage() {
   const router = useRouter();
   const id = params?.id as string;
 
+  const laborDesignationOptions = [
+    'Foreman',
+    'Leadman',
+    'Equipment Operator - Heavy',
+    'Equipment Operator - High Skilled',
+    'Equipment Operator - Light Skilled',
+    'Driver',
+    'Skilled Labor',
+    'Semi-Skilled Labor',
+    'Unskilled Labor',
+  ];
+
   // Basic info
   const [payItemNumber, setPayItemNumber] = useState('');
   const [payItemDescription, setPayItemDescription] = useState('');
@@ -46,7 +59,12 @@ export default function EditDUPATemplatePage() {
   const [materialTemplate, setMaterialTemplate] = useState<MaterialEntry[]>([]);
 
   // Master data for dropdowns
+  const [equipmentOptions, setEquipmentOptions] = useState<Array<{ _id: string; description: string }>>([]);
   const [materialOptions, setMaterialOptions] = useState<Array<{ materialCode: string; description: string; unit: string }>>([]);
+  const [baseEquipmentOptions, setBaseEquipmentOptions] = useState<Array<{ _id: string; description: string }>>([]);
+  const [baseMaterialOptions, setBaseMaterialOptions] = useState<Array<{ materialCode: string; description: string; unit: string }>>([]);
+  const [equipmentSearchLoading, setEquipmentSearchLoading] = useState(false);
+  const [materialSearchLoading, setMaterialSearchLoading] = useState(false);
 
   // Minor Tools configuration
   const [includeMinorTools, setIncludeMinorTools] = useState(false);
@@ -62,6 +80,15 @@ export default function EditDUPATemplatePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const equipmentDropdownOptions = equipmentOptions.map((opt) => ({
+    value: opt._id,
+    label: opt.description,
+  }));
+  const materialDropdownOptions = materialOptions.map((opt) => ({
+    value: opt.materialCode,
+    label: opt.description,
+  }));
+
   const loadData = useCallback(async () => {
     try {
       // Load template data and master data in parallel
@@ -76,6 +103,24 @@ export default function EditDUPATemplatePage() {
         eqRes.json(),
         matRes.json()
       ]);
+
+      // Load master data
+      const equipmentOptionsData = eqJson.success
+        ? eqJson.data.map((e: any) => ({ _id: e._id, description: e.description }))
+        : [];
+      if (eqJson.success) {
+        setEquipmentOptions(equipmentOptionsData);
+        setBaseEquipmentOptions(equipmentOptionsData);
+      }
+      if (matJson.success) {
+        const materialOptionsData = matJson.data.map((m: any) => ({ 
+          materialCode: m.materialCode, 
+          description: m.materialDescription, 
+          unit: m.unit 
+        }));
+        setMaterialOptions(materialOptionsData);
+        setBaseMaterialOptions(materialOptionsData);
+      }
 
       // Load template data
       if (templateData.success) {
@@ -99,22 +144,32 @@ export default function EditDUPATemplatePage() {
           setLaborTemplate(template.laborTemplate);
         }
         if (template.equipmentTemplate && template.equipmentTemplate.length > 0) {
-          setEquipmentTemplate(template.equipmentTemplate);
+          const equipmentTemplateWithIds = template.equipmentTemplate.map((entry: EquipmentEntry) => {
+            if (entry.equipmentId || !entry.description) return entry;
+            const matched = equipmentOptionsData.find((opt: { _id: string; description: string }) => opt.description === entry.description);
+            return matched ? { ...entry, equipmentId: matched._id } : entry;
+          });
+          setEquipmentTemplate(equipmentTemplateWithIds);
         }
         if (template.materialTemplate && template.materialTemplate.length > 0) {
-          setMaterialTemplate(template.materialTemplate);
+          const materialOptionsData = matJson.success
+            ? matJson.data.map((m: any) => ({
+              materialCode: m.materialCode,
+              description: m.materialDescription,
+              unit: m.unit,
+            }))
+            : [];
+          const materialTemplateWithCodes = template.materialTemplate.map((entry: MaterialEntry) => {
+            if (entry.materialCode || !entry.description) return entry;
+            const matched = materialOptionsData.find((opt: { materialCode: string; description: string; unit: string }) => opt.description === entry.description);
+            return matched
+              ? { ...entry, materialCode: matched.materialCode, unit: entry.unit || matched.unit }
+              : entry;
+          });
+          setMaterialTemplate(materialTemplateWithCodes);
         }
       } else {
         setError(templateData.error || 'Failed to load template');
-      }
-
-      // Load master data
-      if (matJson.success) {
-        setMaterialOptions(matJson.data.map((m: any) => ({ 
-          materialCode: m.materialCode, 
-          description: m.materialDescription, 
-          unit: m.unit 
-        })));
       }
     } catch (e) {
       console.error('Failed to load data', e);
@@ -123,6 +178,54 @@ export default function EditDUPATemplatePage() {
       setLoading(false);
     }
   }, [id]);
+
+  const handleEquipmentSearch = async (query: string) => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length < 2) {
+      setEquipmentOptions(baseEquipmentOptions);
+      setEquipmentSearchLoading(false);
+      return;
+    }
+
+    setEquipmentSearchLoading(true);
+    try {
+      const response = await fetch(`/api/master/equipment?search=${encodeURIComponent(trimmedQuery)}`);
+      const data = await response.json();
+      if (data.success) {
+        setEquipmentOptions(data.data.map((e: any) => ({ _id: e._id, description: e.description })));
+      }
+    } catch (error) {
+      console.error('Failed to search equipment', error);
+    } finally {
+      setEquipmentSearchLoading(false);
+    }
+  };
+
+  const handleMaterialSearch = async (query: string) => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length < 2) {
+      setMaterialOptions(baseMaterialOptions);
+      setMaterialSearchLoading(false);
+      return;
+    }
+
+    setMaterialSearchLoading(true);
+    try {
+      const response = await fetch(`/api/master/materials?search=${encodeURIComponent(trimmedQuery)}`);
+      const data = await response.json();
+      if (data.success) {
+        setMaterialOptions(data.data.map((m: any) => ({
+          materialCode: m.materialCode,
+          description: m.materialDescription,
+          unit: m.unit,
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to search materials', error);
+    } finally {
+      setMaterialSearchLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -452,13 +555,21 @@ export default function EditDUPATemplatePage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Designation <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={entry.designation}
                         onChange={(e) => updateLaborEntry(index, 'designation', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g., Foreman, Skilled Labor"
-                      />
+                      >
+                        <option value="">Select designation</option>
+                        {entry.designation && !laborDesignationOptions.includes(entry.designation) && (
+                          <option value={entry.designation}>Current: {entry.designation}</option>
+                        )}
+                        {laborDesignationOptions.map((designation) => (
+                          <option key={designation} value={designation}>
+                            {designation}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="w-32">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -522,12 +633,27 @@ export default function EditDUPATemplatePage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Description <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        value={entry.description}
-                        onChange={(e) => updateEquipmentEntry(index, 'description', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g., Excavator, Truck"
+                      <Combobox
+                        value={entry.equipmentId || ''}
+                        selectedLabel={entry.description}
+                        options={equipmentDropdownOptions}
+                        placeholder="Search equipment"
+                        clearable
+                        loading={equipmentSearchLoading}
+                        onSearch={handleEquipmentSearch}
+                        onChange={(selectedValue) => {
+                          const selected = equipmentOptions.find((opt) => opt._id === selectedValue);
+                          const updated = [...equipmentTemplate];
+                          updated[index] = {
+                            ...updated[index],
+                            equipmentId: selectedValue,
+                            description: selectedValue
+                              ? selected?.description || updated[index].description
+                              : '',
+                          };
+                          setEquipmentTemplate(updated);
+                        }}
+                        disabled={loading}
                       />
                     </div>
                     <div className="w-32">
@@ -595,21 +721,36 @@ export default function EditDUPATemplatePage() {
                       <input
                         type="text"
                         value={entry.materialCode}
-                        onChange={(e) => updateMaterialEntry(index, 'materialCode', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Code"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                       />
                     </div>
                     <div className="flex-1">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Description <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        value={entry.description}
-                        onChange={(e) => updateMaterialEntry(index, 'description', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Material description"
+                      <Combobox
+                        value={entry.materialCode || ''}
+                        selectedLabel={entry.description}
+                        options={materialDropdownOptions}
+                        placeholder="Search material"
+                        clearable
+                        loading={materialSearchLoading}
+                        onSearch={handleMaterialSearch}
+                        onChange={(selectedValue) => {
+                          const selected = materialOptions.find((opt) => opt.materialCode === selectedValue);
+                          const updated = [...materialTemplate];
+                          updated[index] = {
+                            ...updated[index],
+                            materialCode: selectedValue,
+                            description: selectedValue
+                              ? selected?.description || updated[index].description
+                              : '',
+                            unit: selectedValue ? selected?.unit || updated[index].unit : '',
+                          };
+                          setMaterialTemplate(updated);
+                        }}
+                        disabled={loading}
                       />
                     </div>
                     <div className="w-32">
@@ -619,9 +760,8 @@ export default function EditDUPATemplatePage() {
                       <input
                         type="text"
                         value={entry.unit}
-                        onChange={(e) => updateMaterialEntry(index, 'unit', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="kg, pcs"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                       />
                     </div>
                     <div className="w-32">
