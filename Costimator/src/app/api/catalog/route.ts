@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { DPWHCatalogItem, CatalogSearchParams, Trade } from '@/types';
 import catalogData from '@/data/dpwh-catalog.json';
 import { classifyDPWHItem } from '@/lib/dpwhClassification';
+import dbConnect from '@/lib/db/connect';
+import PayItem from '@/models/PayItem';
+import { normalizePayItemNumber } from '@/lib/costing/utils/normalize-pay-item';
 
 const catalog = catalogData.items as DPWHCatalogItem[];
 
@@ -15,6 +18,7 @@ const catalogWithParts = catalog.map(item => ({
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
+    const source = (searchParams.get('source') || 'merged').toLowerCase();
     
     const tradeParam = searchParams.get('trade') || undefined;
     const params: CatalogSearchParams = {
@@ -52,11 +56,66 @@ export async function GET(request: NextRequest) {
       results = results.slice(0, params.limit);
     }
 
+    if (source === 'catalog') {
+      return NextResponse.json({
+        success: true,
+        data: results,
+        total: results.length,
+        catalogVersion: catalogData.version,
+        source,
+      });
+    }
+
+    let payItemMap = new Map<string, any>();
+    try {
+      await dbConnect();
+      const normalizedNumbers = results.map(item => normalizePayItemNumber(item.itemNumber));
+      const itemNumbers = results.map(item => item.itemNumber);
+      const payItems = await PayItem.find({
+        $or: [
+          { normalizedPayItemNumber: { $in: normalizedNumbers } },
+          { payItemNumber: { $in: itemNumbers } },
+        ],
+      }).lean();
+      payItemMap = new Map(
+        payItems.map(item => [
+          item.normalizedPayItemNumber || normalizePayItemNumber(item.payItemNumber || ''),
+          item,
+        ])
+      );
+    } catch (dbError) {
+      console.warn('Catalog merge: DB unavailable, returning catalog only.');
+    }
+
+    const mergedResults = results.map(item => {
+      const normalized = normalizePayItemNumber(item.itemNumber);
+      const payItem = payItemMap.get(normalized);
+
+      if (!payItem) {
+        return item;
+      }
+
+      return {
+        ...item,
+        description: payItem.description || item.description,
+        unit: payItem.unit || item.unit,
+        trade: payItem.trade || item.trade,
+        category: payItem.category || item.category,
+        payItemId: payItem._id?.toString(),
+        payItemNumber: payItem.payItemNumber,
+        payItemPart: payItem.part,
+        division: payItem.division,
+        item: payItem.item,
+        isActive: payItem.isActive,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: results,
-      total: results.length,
+      data: mergedResults,
+      total: mergedResults.length,
       catalogVersion: catalogData.version,
+      source,
     });
   } catch (error) {
     console.error('Error searching catalog:', error);
