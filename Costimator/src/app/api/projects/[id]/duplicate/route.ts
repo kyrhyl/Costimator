@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db/connect';
 import Project from '@/models/Project';
 import { z } from 'zod';
 import mongoose from 'mongoose';
+import { getSessionUser, hasRequiredRole } from '@/lib/auth/session';
+import { PROJECT_WRITE_ROLES } from '@/lib/auth/roles';
 
 const DuplicateProjectSchema = z.object({
   projectName: z.string().min(1, 'New project name is required'),
@@ -27,6 +29,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getSessionUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!hasRequiredRole(user.roles, PROJECT_WRITE_ROLES)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     await dbConnect();
     const { id } = await params;
 

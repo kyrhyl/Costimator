@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 export default function Home() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const { data: session } = useSession();
+  const isAuthenticated = Boolean(session?.user);
 
   const heroImages = [
     {
@@ -50,7 +53,8 @@ export default function Home() {
         </svg>
       ),
       stats: ['Takeoff', 'BOQ', 'Estimates', 'Tracking'],
-      gradient: 'from-blue-500 to-blue-600'
+      gradient: 'from-blue-500 to-blue-600',
+      requiresAuth: true,
     },
     {
       title: 'Cost Estimation',
@@ -101,6 +105,10 @@ export default function Home() {
       gradient: 'from-slate-500 to-slate-600'
     },
   ];
+
+  const visibleModules = modules.filter(module =>
+    module.requiresAuth ? isAuthenticated : true
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -167,26 +175,16 @@ export default function Home() {
                 workflow with automated calculations and comprehensive data management.
               </p>
 
-              <div className="flex gap-4">
-                <Link
-                  href="/projects/new"
-                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Create New Project
-                </Link>
-                <Link
-                  href="/projects"
-                  className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm text-slate-900 px-6 py-3 rounded-lg font-semibold hover:bg-white transition-all shadow-lg hover:scale-105"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                  </svg>
-                  View All Projects
-                </Link>
-              </div>
+              {!isAuthenticated && (
+                <div className="flex gap-4">
+                  <Link
+                    href="/auth/signin"
+                    className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm text-slate-900 px-6 py-3 rounded-lg font-semibold hover:bg-white transition-all shadow-lg hover:scale-105"
+                  >
+                    Sign in to access projects
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -213,46 +211,6 @@ export default function Home() {
               <div className="text-slate-300 text-sm">Export Options</div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Modules Grid */}
-      <div className="max-w-7xl mx-auto px-6 py-16">
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Platform Modules</h2>
-          <p className="text-slate-600">Comprehensive tools for construction cost estimation and management</p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {modules.map((module, idx) => (
-            <Link key={idx} href={module.href} className="group">
-              <div className="bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-xl transition-all duration-200 overflow-hidden h-full">
-                <div className={`bg-gradient-to-r ${module.gradient} p-6 text-white`}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg">
-                      {module.icon}
-                    </div>
-                    <svg className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-bold mb-2">{module.title}</h3>
-                  <p className="text-sm text-white/90 leading-relaxed">{module.description}</p>
-                </div>
-                
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-3">
-                    {module.stats.map((stat, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
-                        <span className="text-slate-700 font-medium">{stat}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
         </div>
       </div>
 

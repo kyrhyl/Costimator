@@ -4,6 +4,8 @@ import Project from '@/models/Project';
 import Estimate from '@/models/Estimate';
 import { z } from 'zod';
 import mongoose from 'mongoose';
+import { getSessionUser, hasRequiredRole } from '@/lib/auth/session';
+import { PROJECT_READ_ROLES, PROJECT_WRITE_ROLES, PROJECT_DELETE_ROLES } from '@/lib/auth/roles';
 
 const ProjectUpdateSchema = z.object({
   projectName: z.string().min(1).optional(),
@@ -81,6 +83,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getSessionUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!hasRequiredRole(user.roles, PROJECT_READ_ROLES)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     await dbConnect();
     const { id } = await params;
 
@@ -127,6 +139,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getSessionUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!hasRequiredRole(user.roles, PROJECT_WRITE_ROLES)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     await dbConnect();
     const { id } = await params;
 
@@ -209,6 +231,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getSessionUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!hasRequiredRole(user.roles, PROJECT_DELETE_ROLES)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     await dbConnect();
     const { id } = await params;
 

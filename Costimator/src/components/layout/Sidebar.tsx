@@ -23,13 +23,9 @@ const menuItems: MenuItem[] = [
     icon: '📁',
   },
   {
-    name: 'Estimation',
-    path: '/estimate',
-    icon: '📋',
-    submenu: [
-      { name: 'Legacy Estimates', path: '/estimate', icon: '📋' },
-      { name: 'DUPA Templates', path: '/dupa-templates', icon: '📄' },
-    ],
+    name: 'DUPA Templates',
+    path: '/dupa-templates',
+    icon: '📄',
   },
   {
     name: 'Master Data',

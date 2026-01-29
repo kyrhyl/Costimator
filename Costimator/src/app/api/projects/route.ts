@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import Project from '@/models/Project';
 import { z } from 'zod';
+import { getSessionUser, hasRequiredRole } from '@/lib/auth/session';
+import { PROJECT_READ_ROLES, PROJECT_WRITE_ROLES } from '@/lib/auth/roles';
 
 const ProjectSchema = z.object({
   projectName: z.string().min(1, 'Project name is required'),
@@ -24,6 +26,16 @@ const ProjectSchema = z.object({
 // GET /api/projects - List projects with filtering
 export async function GET(req: NextRequest) {
   try {
+    const user = await getSessionUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!hasRequiredRole(user.roles, PROJECT_READ_ROLES)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     await dbConnect();
 
     const searchParams = req.nextUrl.searchParams;
@@ -89,6 +101,16 @@ export async function GET(req: NextRequest) {
 // POST /api/projects - Create new project
 export async function POST(req: NextRequest) {
   try {
+    const user = await getSessionUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!hasRequiredRole(user.roles, PROJECT_WRITE_ROLES)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     await dbConnect();
 
     const body = await req.json();
