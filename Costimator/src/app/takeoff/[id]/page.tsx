@@ -28,6 +28,10 @@ interface IProject {
   projectName: string;
   projectLocation: string;
   status: string;
+  grid?: {
+    xLines?: any[];
+    yLines?: any[];
+  };
   gridX?: any[];
   gridY?: any[];
   levels?: any[];
@@ -597,11 +601,11 @@ export default function TakeoffWorkspacePage() {
                     <div className="space-y-2 text-sm">
                       <div>
                         <span className="text-gray-600">X-Axis Lines:</span>{' '}
-                        <span className="font-medium">{project.gridX?.length || 0}</span>
+                        <span className="font-medium">{(project.grid?.xLines?.length || project.gridX?.length || 0)}</span>
                       </div>
                       <div>
                         <span className="text-gray-600">Y-Axis Lines:</span>{' '}
-                        <span className="font-medium">{project.gridY?.length || 0}</span>
+                        <span className="font-medium">{(project.grid?.yLines?.length || project.gridY?.length || 0)}</span>
                       </div>
                       <div>
                         <span className="text-gray-600">Levels:</span>{' '}

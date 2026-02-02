@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  turbopack: {},
   // Optimize webpack for development
   webpack: (config) => {
     config.watchOptions = {

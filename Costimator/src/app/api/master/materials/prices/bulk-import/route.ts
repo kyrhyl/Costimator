@@ -1,13 +1,13 @@
 /**
  * CMPD Bulk Import API
- * Handles CSV/Excel file uploads for Construction Materials Price Data (CMPD)
+ * Handles CSV file uploads for Construction Materials Price Data (CMPD)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import MaterialPrice from '@/models/MaterialPrice';
 import Material from '@/models/Material';
-import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 import { z } from 'zod';
 
 // ============================================================================
@@ -38,68 +38,62 @@ const CMPDImportSchema = z.object({
 // ============================================================================
 
 /**
- * Parse CSV/Excel file buffer to JSON rows
+ * Parse CSV file buffer to JSON rows
  */
-function parseFileBuffer(buffer: Buffer): any[] {
-  try {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
+function parseFileBuffer(buffer: Buffer): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const text = buffer.toString('utf-8');
     
-    // Convert to JSON with header row
-    const rows = XLSX.utils.sheet_to_json(worksheet, {
-      header: 1,
-      defval: '',
-      blankrows: false
-    });
-    
-    if (rows.length === 0) {
-      throw new Error('File is empty');
-    }
-    
-    // Get headers from first row (case-insensitive mapping)
-    const headers = (rows[0] as any[]).map((h: any) => 
-      String(h).toLowerCase().trim().replace(/\s+/g, '_')
-    );
-    
-    // Map to expected column names
-    const columnMap: Record<string, string> = {
-      'material_code': 'materialCode',
-      'materialcode': 'materialCode',
-      'code': 'materialCode',
-      'description': 'description',
-      'unit': 'unit',
-      'unit_cost': 'unitCost',
-      'unitcost': 'unitCost',
-      'price': 'unitCost',
-      'cost': 'unitCost',
-      'brand': 'brand',
-      'specification': 'specification',
-      'specs': 'specification',
-      'supplier': 'supplier',
-    };
-    
-    // Convert rows to objects
-    const dataRows = rows.slice(1) as any[][];
-    return dataRows.map((row, index) => {
-      const obj: any = {};
-      headers.forEach((header, i) => {
-        const mappedKey = columnMap[header] || header;
-        let value = row[i];
-        
-        // Convert numeric strings to numbers for unitCost
-        if (mappedKey === 'unitCost' && typeof value === 'string') {
-          value = parseFloat(value.replace(/,/g, ''));
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => {
+        return header.toLowerCase().trim().replace(/\s+/g, '_');
+      },
+      transform: (value, header) => {
+        if (header === 'unit_cost' || header === 'unitcost' || header === 'price' || header === 'cost') {
+          return parseFloat(value.replace(/,/g, '')) || 0;
+        }
+        return value;
+      },
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          return reject(new Error(`CSV parsing errors: ${results.errors.map(e => e.message).join(', ')}`));
         }
         
-        obj[mappedKey] = value || '';
-      });
-      obj._rowIndex = index + 2; // +2 for header row and 0-based index
-      return obj;
+        const columnMap: Record<string, string> = {
+          'material_code': 'materialCode',
+          'materialcode': 'materialCode',
+          'code': 'materialCode',
+          'description': 'description',
+          'unit': 'unit',
+          'unit_cost': 'unitCost',
+          'unitcost': 'unitCost',
+          'price': 'unitCost',
+          'cost': 'unitCost',
+          'brand': 'brand',
+          'specification': 'specification',
+          'specs': 'specification',
+          'supplier': 'supplier',
+        };
+        
+        const mappedRows = results.data.map((row: any, index) => {
+          const mapped: any = {};
+          for (const [key, value] of Object.entries(row)) {
+            const mappedKey = columnMap[key] || key;
+            mapped[mappedKey] = value || '';
+          }
+          mapped._rowIndex = index + 2;
+          return mapped;
+        });
+        
+        resolve(mappedRows);
+      },
+      error: (error: Error) => {
+        reject(error);
+      }
     });
-  } catch (error: any) {
-    throw new Error(`Failed to parse file: ${error.message}`);
-  }
+  });
 }
 
 /**
@@ -128,10 +122,10 @@ async function validateMaterialCodes(materialCodes: string[]): Promise<{
 
 /**
  * POST /api/master/materials/prices/bulk-import
- * Upload CSV/Excel file to bulk import CMPD prices
+ * Upload CSV file to bulk import CMPD prices
  * 
  * Form Data:
- * - file: CSV or Excel file
+ * - file: CSV file
  * - district: DPWH district (e.g., "DPWH-NCR-1st")
  * - cmpd_version: Version identifier (e.g., "CMPD-2024-Q1")
  * - location: Location name
@@ -154,14 +148,11 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validate file type
+    // Validate file type (CSV only)
     const filename = file.name.toLowerCase();
-    const validExtensions = ['.csv', '.xlsx', '.xls'];
-    const isValidFile = validExtensions.some(ext => filename.endsWith(ext));
-    
-    if (!isValidFile) {
+    if (!filename.endsWith('.csv')) {
       return NextResponse.json(
-        { success: false, error: 'Invalid file type. Only CSV, XLS, XLSX files are allowed' },
+        { success: false, error: 'Only CSV files are supported. Please convert your Excel file to CSV format.' },
         { status: 400 }
       );
     }
@@ -198,7 +189,7 @@ export async function POST(request: NextRequest) {
     // Parse file
     let rows: any[];
     try {
-      rows = parseFileBuffer(buffer);
+      rows = await parseFileBuffer(buffer) as any[];
     } catch (error: any) {
       return NextResponse.json(
         { success: false, error: error.message },

@@ -62,6 +62,20 @@ export default function SpacesManager({ projectId, levels, gridX, gridY }: Space
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('Form data:', formData);
+    console.log('Available gridX labels:', gridX.map(g => g.label));
+    console.log('Available gridY labels:', gridY.map(g => g.label));
+    console.log('Available gridX:', gridX);
+    console.log('Available gridY:', gridY);
+    console.log('Sending boundary:', {
+      type: 'gridRect',
+      data: {
+        gridX: [formData.gridXStart, formData.gridXEnd],
+        gridY: [formData.gridYStart, formData.gridYEnd],
+      },
+    });
+    
     try {
       const res = await fetch(`/api/projects/${projectId}/spaces`, {
         method: 'POST',
@@ -88,9 +102,14 @@ export default function SpacesManager({ projectId, levels, gridX, gridY }: Space
           gridYStart: '',
           gridYEnd: '',
         });
+      } else {
+        const data = await res.json();
+        console.error('API Error Response:', data);
+        alert(`Failed to create space: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error creating space:', error);
+      alert('Failed to create space. Please try again.');
     }
   };
 
@@ -381,6 +400,7 @@ export default function SpacesManager({ projectId, levels, gridX, gridY }: Space
 
             <button
               type="submit"
+              onClick={() => console.log('Create Space button clicked', formData)}
               className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm shadow-sm transition-colors"
             >
               Create Space

@@ -20,25 +20,32 @@ export default function GridEditorWrapper({ projectId }: GridEditorWrapperProps)
 
   const loadGrid = async () => {
     try {
+      console.log('[GridEditorWrapper] Loading grid for project:', projectId);
       setLoading(true);
       setError(null);
       const res = await fetch(`/api/projects/${projectId}/grid`);
+      
+      console.log('[GridEditorWrapper] API response status:', res.status);
       
       if (!res.ok) {
         throw new Error('Failed to load grid');
       }
       
       const result = await res.json();
+      console.log('[GridEditorWrapper] API response data:', result);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to load grid');
       }
       
-      const gridData = result.data || { xLines: [], yLines: [] };
-      setGridX(gridData.xLines || []);
-      setGridY(gridData.yLines || []);
+      const gridData = result.data || { xLines: [], yLines: [], gridX: [], gridY: [] };
+      console.log('[GridEditorWrapper] Grid data extracted:', gridData);
+      const xLines = gridData.gridX || gridData.xLines || [];
+      const yLines = gridData.gridY || gridData.yLines || [];
+      setGridX(xLines);
+      setGridY(yLines);
     } catch (err: any) {
-      console.error('Error loading grid:', err);
+      console.error('[GridEditorWrapper] Error loading grid:', err);
       setError(err.message || 'Failed to load grid');
     } finally {
       setLoading(false);
@@ -46,26 +53,36 @@ export default function GridEditorWrapper({ projectId }: GridEditorWrapperProps)
   };
 
   const handleSave = async (newGridX: GridLine[], newGridY: GridLine[]) => {
-    const res = await fetch(`/api/projects/${projectId}/grid`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ xLines: newGridX, yLines: newGridY }),
-    });
-    
-    if (!res.ok) {
+    try {
+      console.log('[GridEditorWrapper] Saving grid to API:', { newGridX, newGridY });
+      const res = await fetch(`/api/projects/${projectId}/grid`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ xLines: newGridX, yLines: newGridY }),
+      });
+      
+      console.log('[GridEditorWrapper] Save API response status:', res.status);
+      
+      if (!res.ok) {
+        const result = await res.json();
+        throw new Error(result.error || 'Failed to save grid');
+      }
+      
       const result = await res.json();
-      throw new Error(result.error || 'Failed to save grid');
+      console.log('[GridEditorWrapper] Save API response data:', result);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save grid');
+      }
+      
+      // Update local state
+      setGridX(newGridX);
+      setGridY(newGridY);
+      console.log('[GridEditorWrapper] Grid saved and state updated');
+    } catch (err: any) {
+      console.error('[GridEditorWrapper] Error saving grid:', err);
+      throw err;
     }
-    
-    const result = await res.json();
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to save grid');
-    }
-    
-    // Update local state
-    setGridX(newGridX);
-    setGridY(newGridY);
   };
 
   if (loading) {
@@ -90,6 +107,14 @@ export default function GridEditorWrapper({ projectId }: GridEditorWrapperProps)
         >
           Retry
         </button>
+      </div>
+    );
+  }
+
+  if (!gridX || !gridY) {
+    return (
+      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <p className="text-sm text-yellow-700">No grid data available. Please create a grid system.</p>
       </div>
     );
   }

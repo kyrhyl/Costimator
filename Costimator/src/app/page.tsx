@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { data: session } = useSession();

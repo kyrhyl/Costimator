@@ -275,76 +275,6 @@ export default function EstimateReportsPage() {
     }
   };
 
-  const handleExportExcel = async () => {
-    if (!estimate) return;
-
-    try {
-      const XLSX = await import('xlsx');
-      
-      const workbook = XLSX.utils.book_new();
-      
-      // Summary Sheet
-      const summaryData: (string | number)[][] = [
-        ['DETAILED COST ESTIMATE'],
-        [estimate.implementingOffice],
-        [''],
-        ['Project Name:', estimate.projectName],
-        ['Location:', estimate.projectLocation],
-        ['Date Prepared:', formatDate(estimate.createdAt)],
-        ['Last Updated:', formatDate(estimate.updatedAt)],
-        [''],
-        ['COST SUMMARY'],
-        [''],
-        ['Cost Component', 'As Submitted', 'As Evaluated', 'Difference'],
-        ['Direct Cost', estimate.totalDirectCostSubmitted, estimate.totalDirectCostEvaluated, estimate.totalDirectCostEvaluated - estimate.totalDirectCostSubmitted],
-        ['OCM', estimate.totalOCMSubmitted, estimate.totalOCMEvaluated, estimate.totalOCMEvaluated - estimate.totalOCMSubmitted],
-        ['Contractor\'s Profit', estimate.totalCPSubmitted, estimate.totalCPEvaluated, estimate.totalCPEvaluated - estimate.totalCPSubmitted],
-        ['VAT', estimate.totalVATSubmitted, estimate.totalVATEvaluated, estimate.totalVATEvaluated - estimate.totalVATSubmitted],
-        ['GRAND TOTAL', estimate.grandTotalSubmitted, estimate.grandTotalEvaluated, estimate.grandTotalEvaluated - estimate.grandTotalSubmitted]
-      ];
-      
-      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
-      
-      // Detailed BOQ Sheet
-      const boqData: (string | number)[][] = [
-        ['Item No', 'Description', 'Pay Item', 'Unit', 'Quantity', 'Unit Price (Sub.)', 'Amount (Sub.)', 'Unit Price (Eval.)', 'Amount (Eval.)']
-      ];
-      
-      estimate.boqLines.forEach(line => {
-        const unitPriceSubmitted = line.breakdown?.totalSubmitted || line.unitPrice || 0;
-        const unitPriceEvaluated = line.breakdown?.totalEvaluated || line.unitPrice || 0;
-        boqData.push([
-          line.itemNo,
-          line.description,
-          line.payItemNumber || '',
-          line.unit,
-          line.quantity,
-          unitPriceSubmitted,
-          unitPriceSubmitted * line.quantity,
-          unitPriceEvaluated,
-          unitPriceEvaluated * line.quantity
-        ]);
-      });
-      
-      boqData.push([
-        '', '', '', '', 'GRAND TOTAL:', '',
-        estimate.grandTotalSubmitted,
-        '',
-        estimate.grandTotalEvaluated
-      ]);
-      
-      const boqSheet = XLSX.utils.aoa_to_sheet(boqData);
-      XLSX.utils.book_append_sheet(workbook, boqSheet, 'BOQ');
-      
-      // Save Excel file
-      const fileName = `${estimate.projectName.replace(/[^a-z0-9]/gi, '_')}_estimate.xlsx`;
-      XLSX.writeFile(workbook, fileName);
-    } catch (error) {
-      console.error('Excel export error:', error);
-      alert('Failed to export Excel. Please try again.');
-    }
-  };
 
   if (loading) {
     return (
@@ -410,15 +340,7 @@ export default function EstimateReportsPage() {
                 </svg>
                 Export PDF
               </button>
-              <button
-                onClick={handleExportExcel}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export Excel
-              </button>
+
             </div>
           </div>
 

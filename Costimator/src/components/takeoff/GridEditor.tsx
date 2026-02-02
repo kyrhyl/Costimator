@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { GridLine } from '@/types';
 
 interface GridEditorProps {
@@ -14,6 +14,20 @@ export default function GridEditor({ gridX: initialGridX, gridY: initialGridY, o
   const [gridY, setGridY] = useState<GridLine[]>(initialGridY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log('[GridEditor] Props updated:', { initialGridX, initialGridY });
+    setGridX(initialGridX);
+    setGridY(initialGridY);
+  }, [initialGridX, initialGridY]);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   // Add new grid line
   const addLine = (axis: 'x' | 'y') => {
@@ -72,10 +86,15 @@ export default function GridEditor({ gridX: initialGridX, gridY: initialGridY, o
   // Save grid
   const handleSave = async () => {
     try {
+      console.log('[GridEditor] Saving grid:', { gridX, gridY });
       setSaving(true);
       setError(null);
+      setSuccess(null);
       await onSave(gridX, gridY);
+      console.log('[GridEditor] Grid saved successfully');
+      setSuccess('Grid system saved successfully to database!');
     } catch (err: any) {
+      console.error('[GridEditor] Error saving grid:', err);
       setError(err.message || 'Failed to save grid');
     } finally {
       setSaving(false);
@@ -99,6 +118,12 @@ export default function GridEditor({ gridX: initialGridX, gridY: initialGridY, o
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-600">{success}</p>
         </div>
       )}
 

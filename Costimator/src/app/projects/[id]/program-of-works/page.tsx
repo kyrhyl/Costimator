@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProjectDetailsCard from '@/components/program-of-works/ProjectDetailsCard';
+import { IProject } from '@/models/Project';
 import FinancialSummaryCard from '@/components/program-of-works/FinancialSummaryCard';
 import DescriptionOfWorksTable, { type WorksPart } from '@/components/program-of-works/DescriptionOfWorksTable';
 import EquipmentRequirements, { type Equipment } from '@/components/program-of-works/EquipmentRequirements';
@@ -155,8 +156,8 @@ export default function ProgramOfWorksWorkspacePage() {
   };
 
   const handleExportPDF = () => {
-    if (selectedEstimateId) {
-      window.open(`/estimate/${selectedEstimateId}/program-of-works-report`, '_blank');
+    if (projectId) {
+      window.open(`/projects/${projectId}/pow-report`, '_blank');
     }
   };
 
@@ -246,7 +247,7 @@ export default function ProgramOfWorksWorkspacePage() {
     };
   };
 
-  const reportLink = selectedEstimateId ? `/estimate/${selectedEstimateId}/program-of-works-report` : undefined;
+  const reportLink = projectId ? `/projects/${projectId}/pow-report` : undefined;
   const worksParts = useMemo(() => (selectedEstimate ? transformToWorksParts(selectedEstimate) : []), [selectedEstimate]);
   const equipment = useMemo(() => (selectedEstimate ? transformToEquipment(selectedEstimate) : []), [selectedEstimate]);
   const expenditureBreakdown = useMemo(
@@ -264,7 +265,7 @@ export default function ProgramOfWorksWorkspacePage() {
 
   const itemizedGroups = useMemo(() => {
     const lines = selectedEstimate?.estimateLines || [];
-    const total = selectedEstimate?.costSummary?.grandTotal || 0;
+    const total = selectedEstimate?.costSummary?.totalDirectCost || 0;
     const partDescriptions: Record<string, string> = {
       'PART A': 'Facilities for the Engineer',
       'PART B': 'Other General Requirements',
@@ -300,7 +301,6 @@ export default function ProgramOfWorksWorkspacePage() {
       const quantity = Number(line.quantity || 0);
       const unitCost = Number(line.unitPrice || 0);
       const directCost = Number(line.directCost || 0) * quantity;
-      const totalAmount = Number(line.totalAmount || unitCost * quantity || 0);
 
       group.items.push({
         id: line._id || `${partKey}-${line.payItemNumber}-${group.items.length}`,
@@ -311,9 +311,9 @@ export default function ProgramOfWorksWorkspacePage() {
         unit: String(line.unit || ''),
         unitCost,
         directCost,
-        totalAmount
+        totalAmount: directCost
       });
-      group.totalAmount += totalAmount;
+      group.totalAmount += directCost;
     });
 
     const groups = Array.from(groupsMap.values());
@@ -620,19 +620,8 @@ export default function ProgramOfWorksWorkspacePage() {
                   </div>
                 )}
 
-                {activeSection === 'project-details' && (
-                  <ProjectDetailsCard
-                    projectName={project?.projectName || 'Untitled Project'}
-                    implementingOffice={project?.implementingOffice || 'DPWH District Office'}
-                    location={project?.projectLocation || 'Location not specified'}
-                    district={project?.district || ''}
-                    fundSource={project?.fundSource || 'General Appropriations Act'}
-                    workableDays={project?.workableDays}
-                    unworkableDays={project?.unworkableDays}
-                    totalDuration={project?.totalDuration}
-                    startDate={project?.startDate}
-                    endDate={project?.endDate}
-                  />
+                {activeSection === 'project-details' && project && (
+                  <ProjectDetailsCard project={project as unknown as IProject} />
                 )}
 
                 {activeSection === 'financial-summary' && (

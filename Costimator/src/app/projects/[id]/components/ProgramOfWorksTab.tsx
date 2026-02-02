@@ -146,13 +146,13 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href={`/projects/${projectId}/program-of-works${latestEstimate?._id ? `?estimateId=${encodeURIComponent(latestEstimate._id)}` : ''}`}
+            href={`/projects/${projectId}/pow-report`}
             className="inline-flex items-center gap-2 bg-dpwh-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-dpwh-blue-700 transition-all"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h10" />
             </svg>
-            Open Workspace
+            Open POW Report
           </Link>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -226,7 +226,7 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
               <tr key={estimate._id} className="hover:bg-gray-50">
                 <td className="px-6 py-4">
                   <Link
-                    href={`/projects/${projectId}/program-of-works?estimateId=${encodeURIComponent(estimate._id)}`}
+                    href={`/projects/${projectId}/pow-report`}
                     className="text-dpwh-blue-600 hover:text-dpwh-blue-800 font-medium text-left"
                   >
                     {estimate.name || estimate.estimateNumber || 'Untitled Estimate'}
@@ -258,11 +258,11 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
                 <td className="px-6 py-4">
                   <div className="flex justify-center gap-2">
                     <Link
-                      href={`/projects/${projectId}/program-of-works?estimateId=${encodeURIComponent(estimate._id)}`}
+                      href={`/projects/${projectId}/pow-report`}
                       className="text-dpwh-blue-600 hover:text-dpwh-blue-800 text-sm px-2 py-1 rounded hover:bg-blue-50"
-                      title="Open Workspace"
+                      title="Program of Works Report"
                     >
-                      📊 Workspace
+                      📄 POW Report
                     </Link>
                     <Link
                       href={`/cost-estimates/${estimate._id}`}
@@ -270,13 +270,6 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
                       title="View Details & DUPA"
                     >
                       📋 Details
-                    </Link>
-                    <Link
-                      href={`/estimate/${estimate._id}/program-of-works-report`}
-                      className="text-purple-600 hover:text-purple-800 text-sm px-2 py-1 rounded hover:bg-purple-50"
-                      title="Program of Works Report"
-                    >
-                      📄 Program of Works Report
                     </Link>
                     <button
                       onClick={() => handleDeleteEstimate(estimate._id)}

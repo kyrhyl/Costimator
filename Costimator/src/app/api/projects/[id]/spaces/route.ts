@@ -27,8 +27,15 @@ export async function GET(
       );
     }
     
+    // Ensure gridX/gridY are set from grid.xLines/grid.yLines if needed
+    const responseProject = {
+      ...project.toObject(),
+      gridX: project.gridX || project.grid?.xLines || [],
+      gridY: project.gridY || project.grid?.yLines || [],
+    };
+    
     return NextResponse.json({
-      spaces: project.spaces || [],
+      spaces: responseProject.spaces || [],
     });
   } catch (error: any) {
     console.error('Error fetching spaces:', error);
@@ -75,10 +82,21 @@ export async function POST(
     }
     
     // Create grid system for geometry calculation
+    // Check both possible locations for grid data
     const gridSystem: GridSystem = {
-      gridX: project.gridX || [],
-      gridY: project.gridY || [],
+      gridX: project.gridX || project.grid?.xLines || [],
+      gridY: project.gridY || project.grid?.yLines || [],
     };
+    
+    console.log('Creating space for project:', id);
+    console.log('Request body:', body);
+    console.log('Project.gridX:', project.gridX);
+    console.log('Project.gridY:', project.gridY);
+    console.log('Project.grid.xLines:', project.grid?.xLines);
+    console.log('Project.grid.yLines:', project.grid?.yLines);
+    console.log('Grid system used:', gridSystem);
+    console.log('Looking for gridX labels:', body.boundary.data.gridX);
+    console.log('Looking for gridY labels:', body.boundary.data.gridY);
     
     // Create space
     const newSpace: Space = {
@@ -94,8 +112,10 @@ export async function POST(
     // Compute geometry
     try {
       const geometry = computeSpaceGeometry(newSpace, gridSystem);
+      console.log('Geometry computed:', geometry);
       newSpace.computed = geometry;
     } catch (error: any) {
+      console.error('Geometry calculation error:', error);
       return NextResponse.json(
         { error: `Geometry calculation failed: ${error.message}` },
         { status: 400 }
@@ -108,7 +128,9 @@ export async function POST(
     }
     project.spaces.push(newSpace);
     
+    console.log('Saving project with new space...');
     await project.save();
+    console.log('Project saved successfully');
     
     return NextResponse.json({
       space: newSpace,

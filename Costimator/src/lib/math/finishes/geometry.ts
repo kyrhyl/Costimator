@@ -46,14 +46,26 @@ export function computeGridRectGeometry(
   const [xStart, xEnd] = boundary.gridX;
   const [yStart, yEnd] = boundary.gridY;
   
+  console.log('Looking for X grid lines:', xStart, xEnd);
+  console.log('Available X grid lines:', gridSystem.gridX.map(g => g.label));
+  console.log('Looking for Y grid lines:', yStart, yEnd);
+  console.log('Available Y grid lines:', gridSystem.gridY.map(g => g.label));
+  
   const xStartLine = gridSystem.gridX.find(g => g.label === xStart);
   const xEndLine = gridSystem.gridX.find(g => g.label === xEnd);
   const yStartLine = gridSystem.gridY.find(g => g.label === yStart);
   const yEndLine = gridSystem.gridY.find(g => g.label === yEnd);
   
+  console.log('Found grid lines:', {
+    xStartLine: xStartLine?.label,
+    xEndLine: xEndLine?.label,
+    yStartLine: yStartLine?.label,
+    yEndLine: yEndLine?.label,
+  });
+  
   if (!xStartLine || !xEndLine || !yStartLine || !yEndLine) {
     throw new Error(
-      `Grid lines not found: ${xStart}-${xEnd}, ${yStart}-${yEnd}`
+      `Grid lines not found. Requested: X[${xStart}, ${xEnd}], Y[${yStart}, ${yEnd}]. Available X: [${gridSystem.gridX.map(g => g.label).join(', ')}], Available Y: [${gridSystem.gridY.map(g => g.label).join(', ')}]`
     );
   }
   

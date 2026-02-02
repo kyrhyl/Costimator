@@ -89,9 +89,11 @@ export function aggregateByPartForChart(takeoffLines: TakeoffLine[]): Array<{
   };
   
   const partNames: Record<string, string> = {
-    'C': 'Part C - Earthworks',
-    'D': 'Part D - Concrete & Reinforcement',
-    'E': 'Part E - Finishing & Civil Works',
+    'A': 'Part A - General',
+    'B': 'Part B - Other General Requirements',
+    'C': 'Part C - Earthwork',
+    'D': 'Part D - Reinforced Concrete / Buildings',
+    'E': 'Part E - Finishings and Other Civil Works',
     'F': 'Part F - Electrical',
     'G': 'Part G - Mechanical',
   };

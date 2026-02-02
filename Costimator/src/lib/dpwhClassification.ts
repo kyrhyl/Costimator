@@ -27,15 +27,15 @@ function getDPWHPart(itemNumber: string): { part: string; partName: string } {
   if (prefix >= 800 && prefix < 900) {
     return { part: 'PART C', partName: 'EARTHWORK' };
   } else if (prefix >= 900 && prefix < 1000) {
-    return { part: 'PART D', partName: 'CONCRETE WORKS' };
+    return { part: 'PART D', partName: 'REINFORCED CONCRETE / BUILDINGS' };
   } else if (prefix >= 1000 && prefix < 1100) {
-    return { part: 'PART E', partName: 'FINISHING WORKS' };
+    return { part: 'PART E', partName: 'FINISHINGS AND OTHER CIVIL WORKS' };
   } else if (prefix >= 1100 && prefix < 1500) {
-    return { part: 'PART F', partName: 'METAL & ELECTRICAL WORKS' };
+    return { part: 'PART F', partName: 'ELECTRICAL' };
   } else if (prefix >= 1500) {
-    return { part: 'PART G', partName: 'MARINE & OTHER WORKS' };
+    return { part: 'PART G', partName: 'MECHANICAL' };
   } else {
-    return { part: 'PART A', partName: 'GENERAL REQUIREMENTS' };
+    return { part: 'PART A', partName: 'GENERAL' };
   }
 }
 
@@ -142,8 +142,8 @@ export function classifyDPWHItem(itemNumber: string, category?: string): DPWHCla
   // Handle empty or missing item numbers
   if (!itemNumber || itemNumber === '-' || itemNumber.trim() === '') {
     return {
-      part: 'PART A: GENERAL REQUIREMENTS',
-      partName: 'GENERAL REQUIREMENTS',
+      part: 'PART A: GENERAL',
+      partName: 'GENERAL',
       subcategory: category || 'Other Works',
     };
   }

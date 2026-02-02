@@ -10,6 +10,7 @@ import TakeoffViewer from '@/components/takeoff/TakeoffViewer';
 import BOQViewer from '@/components/takeoff/BOQViewer';
 import CalcRunList from '@/components/takeoff/CalcRunList';
 import ProgramOfWorksTab from './components/ProgramOfWorksTab';
+import ProjectDetailsCard from '@/components/program-of-works/ProjectDetailsCard';
 
 interface Project {
   _id: string;
@@ -28,6 +29,38 @@ interface Project {
   distanceFromOffice: number;
   createdAt: string;
   updatedAt: string;
+  // DPWH POW fields
+  address?: string;
+  targetStartDate?: string;
+  targetCompletionDate?: string;
+  contractDurationCD?: number;
+  workingDays?: number;
+  unworkableDays?: {
+    sundays?: number;
+    holidays?: number;
+    rainyDays?: number;
+  };
+  fundSource?: {
+    projectId?: string;
+    fundingAgreement?: string;
+    fundingOrganization?: string;
+  };
+  physicalTarget?: {
+    infraType?: string;
+    projectComponentId?: string;
+    targetAmount?: number;
+    unitOfMeasure?: string;
+  };
+  projectComponent?: {
+    componentId?: string;
+    infraId?: string;
+    coordinates?: {
+      latitude?: number;
+      longitude?: number;
+    };
+  };
+  allotedAmount?: number;
+  estimatedComponentCost?: number;
 }
 
 interface ProjectEstimate {
@@ -470,6 +503,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
       </div>
+
+      <ProjectDetailsCard project={project as any} />
 
       {/* Hauling Configuration */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">

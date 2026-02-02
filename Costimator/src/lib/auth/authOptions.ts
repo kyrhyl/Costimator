@@ -1,5 +1,6 @@
 import type { NextAuthOptions, Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
+import type { UserRole } from '@/models/User';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import dbConnect from '@/lib/db/connect';
 import User from '@/models/User';
@@ -57,7 +58,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user) {
         session.user.id = token.userId as string;
-        session.user.roles = (token.roles as string[]) || [];
+        session.user.roles = (token.roles as UserRole[]) || [];
       }
       return session;
     },

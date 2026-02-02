@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!hasRequiredRole(user.roles, PROJECT_READ_ROLES)) {
+    if (!hasRequiredRole(user, PROJECT_READ_ROLES)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!hasRequiredRole(user.roles, PROJECT_WRITE_ROLES)) {
+    if (!hasRequiredRole(user, PROJECT_WRITE_ROLES)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

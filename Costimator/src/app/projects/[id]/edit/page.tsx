@@ -31,6 +31,7 @@ export default function EditProjectPage() {
   const [locations, setLocations] = useState<LaborRate[]>([]);
   const [cmpdVersions, setCmpdVersions] = useState<string[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
+  const [activePOWTab, setActivePOWTab] = useState<'projectDetails' | 'fundSource' | 'physicalTarget' | 'financial'>('projectDetails');
 
   // Form fields
   const [projectName, setProjectName] = useState('');
@@ -47,6 +48,29 @@ export default function EditProjectPage() {
   const [description, setDescription] = useState('');
   const [haulingCostPerKm, setHaulingCostPerKm] = useState(0);
   const [distanceFromOffice, setDistanceFromOffice] = useState(0);
+
+  // DPWH Program of Works fields
+  const [address, setAddress] = useState('');
+  const [targetStartDate, setTargetStartDate] = useState('');
+  const [targetCompletionDate, setTargetCompletionDate] = useState('');
+  const [contractDurationCD, setContractDurationCD] = useState('');
+  const [workingDays, setWorkingDays] = useState('');
+  const [unworkableDaysSundays, setUnworkableDaysSundays] = useState('');
+  const [unworkableDaysHolidays, setUnworkableDaysHolidays] = useState('');
+  const [unworkableDaysRainyDays, setUnworkableDaysRainyDays] = useState('');
+  const [fundSourceProjectId, setFundSourceProjectId] = useState('');
+  const [fundSourceFundingAgreement, setFundSourceFundingAgreement] = useState('');
+  const [fundSourceFundingOrganization, setFundSourceFundingOrganization] = useState('');
+  const [physicalTargetInfraType, setPhysicalTargetInfraType] = useState('');
+  const [physicalTargetProjectComponentId, setPhysicalTargetProjectComponentId] = useState('');
+  const [physicalTargetTargetAmount, setPhysicalTargetTargetAmount] = useState('');
+  const [physicalTargetUnitOfMeasure, setPhysicalTargetUnitOfMeasure] = useState('');
+  const [projectComponentComponentId, setProjectComponentComponentId] = useState('');
+  const [projectComponentInfraId, setProjectComponentInfraId] = useState('');
+  const [projectComponentLatitude, setProjectComponentLatitude] = useState('');
+  const [projectComponentLongitude, setProjectComponentLongitude] = useState('');
+  const [allotedAmount, setAllotedAmount] = useState('');
+  const [estimatedComponentCost, setEstimatedComponentCost] = useState('');
 
   const fetchLocations = useCallback(async () => {
     try {
@@ -103,7 +127,34 @@ export default function EditProjectPage() {
         if (project.endDate) {
           setEndDate(new Date(project.endDate).toISOString().split('T')[0]);
         }
-        
+
+        // DPWH POW fields
+        setAddress(project.address || '');
+        if (project.targetStartDate) {
+          setTargetStartDate(new Date(project.targetStartDate).toISOString().split('T')[0]);
+        }
+        if (project.targetCompletionDate) {
+          setTargetCompletionDate(new Date(project.targetCompletionDate).toISOString().split('T')[0]);
+        }
+        setContractDurationCD(project.contractDurationCD?.toString() || '');
+        setWorkingDays(project.workingDays?.toString() || '');
+        setUnworkableDaysSundays((project.unworkableDays as any)?.sundays?.toString() || '');
+        setUnworkableDaysHolidays((project.unworkableDays as any)?.holidays?.toString() || '');
+        setUnworkableDaysRainyDays((project.unworkableDays as any)?.rainyDays?.toString() || '');
+        setFundSourceProjectId((project.fundSource as any)?.projectId || '');
+        setFundSourceFundingAgreement((project.fundSource as any)?.fundingAgreement || '');
+        setFundSourceFundingOrganization((project.fundSource as any)?.fundingOrganization || '');
+        setPhysicalTargetInfraType((project.physicalTarget as any)?.infraType || '');
+        setPhysicalTargetProjectComponentId((project.physicalTarget as any)?.projectComponentId || '');
+        setPhysicalTargetTargetAmount((project.physicalTarget as any)?.targetAmount?.toString() || '');
+        setPhysicalTargetUnitOfMeasure((project.physicalTarget as any)?.unitOfMeasure || '');
+        setProjectComponentComponentId((project.projectComponent as any)?.componentId || '');
+        setProjectComponentInfraId((project.projectComponent as any)?.infraId || '');
+        setProjectComponentLatitude((project.projectComponent as any)?.coordinates?.latitude?.toString() || '');
+        setProjectComponentLongitude((project.projectComponent as any)?.coordinates?.longitude?.toString() || '');
+        setAllotedAmount(project.allotedAmount?.toString() || '');
+        setEstimatedComponentCost(project.estimatedComponentCost?.toString() || '');
+
         // Fetch CMPD versions for the project's district
         if (project.district) {
           fetchCmpdVersions(project.district);
@@ -152,6 +203,38 @@ export default function EditProjectPage() {
       description,
       haulingCostPerKm,
       distanceFromOffice,
+      // DPWH POW fields
+      address,
+      targetStartDate: targetStartDate || undefined,
+      targetCompletionDate: targetCompletionDate || undefined,
+      contractDurationCD: contractDurationCD ? parseFloat(contractDurationCD) : undefined,
+      workingDays: workingDays ? parseInt(workingDays) : undefined,
+      unworkableDays: {
+        sundays: unworkableDaysSundays ? parseInt(unworkableDaysSundays) : 0,
+        holidays: unworkableDaysHolidays ? parseInt(unworkableDaysHolidays) : 0,
+        rainyDays: unworkableDaysRainyDays ? parseInt(unworkableDaysRainyDays) : 0,
+      },
+      fundSource: {
+        projectId: fundSourceProjectId || undefined,
+        fundingAgreement: fundSourceFundingAgreement || undefined,
+        fundingOrganization: fundSourceFundingOrganization || undefined,
+      },
+      physicalTarget: {
+        infraType: physicalTargetInfraType || undefined,
+        projectComponentId: physicalTargetProjectComponentId || undefined,
+        targetAmount: physicalTargetTargetAmount ? parseFloat(physicalTargetTargetAmount) : undefined,
+        unitOfMeasure: physicalTargetUnitOfMeasure || undefined,
+      },
+      projectComponent: {
+        componentId: projectComponentComponentId || undefined,
+        infraId: projectComponentInfraId || undefined,
+        coordinates: {
+          latitude: projectComponentLatitude ? parseFloat(projectComponentLatitude) : undefined,
+          longitude: projectComponentLongitude ? parseFloat(projectComponentLongitude) : undefined,
+        },
+      },
+      allotedAmount: allotedAmount ? parseFloat(allotedAmount) : undefined,
+      estimatedComponentCost: estimatedComponentCost ? parseFloat(estimatedComponentCost) : undefined,
     };
 
     try {
@@ -460,7 +543,7 @@ export default function EditProjectPage() {
 
           {/* Hauling Configuration */}
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Hauling Configuration</h2>
+            <h2 className="text-xl font-semibold mb-4">Material Hauling Cost</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -489,6 +572,304 @@ export default function EditProjectPage() {
                   placeholder="0.00"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* DPWH Program of Works Settings */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">DPWH Program of Works Details</h2>
+            </div>
+            
+            {/* Tab Navigation */}
+            <div className="border-b border-gray-200 mb-4">
+              <nav className="flex space-x-6" aria-label="DPWH POW tabs">
+                <button
+                  onClick={() => setActivePOWTab('projectDetails')}
+                  className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
+                    activePOWTab === 'projectDetails'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Project Details
+                </button>
+                <button
+                  onClick={() => setActivePOWTab('fundSource')}
+                  className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
+                    activePOWTab === 'fundSource'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Fund Source
+                </button>
+                <button
+                  onClick={() => setActivePOWTab('physicalTarget')}
+                  className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
+                    activePOWTab === 'physicalTarget'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Physical Target
+                </button>
+                <button
+                  onClick={() => setActivePOWTab('financial')}
+                  className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
+                    activePOWTab === 'financial'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Financial
+                </button>
+              </nav>
+            </div>
+
+            {/* Tab Content */}
+            <div className="mt-4">
+              {/* Project Details Tab */}
+              {activePOWTab === 'projectDetails' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., Sitio Tagilanao, Malaybalay City, Bukidnon"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Start Date</label>
+                    <input
+                      type="date"
+                      value={targetStartDate}
+                      onChange={(e) => setTargetStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Completion Date</label>
+                    <input
+                      type="date"
+                      value={targetCompletionDate}
+                      onChange={(e) => setTargetCompletionDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Contract Duration (CD)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={contractDurationCD}
+                      onChange={(e) => setContractDurationCD(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">No. of Workable Days</label>
+                    <input
+                      type="number"
+                      value={workingDays}
+                      onChange={(e) => setWorkingDays(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Sundays</label>
+                    <input
+                      type="number"
+                      value={unworkableDaysSundays}
+                      onChange={(e) => setUnworkableDaysSundays(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Holidays</label>
+                    <input
+                      type="number"
+                      value={unworkableDaysHolidays}
+                      onChange={(e) => setUnworkableDaysHolidays(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Rainy Days</label>
+                    <input
+                      type="number"
+                      value={unworkableDaysRainyDays}
+                      onChange={(e) => setUnworkableDaysRainyDays(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Fund Source Tab */}
+              {activePOWTab === 'fundSource' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
+                    <input
+                      type="text"
+                      value={fundSourceProjectId}
+                      onChange={(e) => setFundSourceProjectId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., 2025-BEFF-001"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Funding Agreement</label>
+                    <input
+                      type="text"
+                      value={fundSourceFundingAgreement}
+                      onChange={(e) => setFundSourceFundingAgreement(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., (BEFF) FY 2025"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Funding Organization</label>
+                    <input
+                      type="text"
+                      value={fundSourceFundingOrganization}
+                      onChange={(e) => setFundSourceFundingOrganization(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., National Treasury"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Physical Target Tab */}
+              {activePOWTab === 'physicalTarget' && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Infra Type</label>
+                    <input
+                      type="text"
+                      value={physicalTargetInfraType}
+                      onChange={(e) => setPhysicalTargetInfraType(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., Local"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Component ID</label>
+                    <input
+                      type="text"
+                      value={physicalTargetProjectComponentId}
+                      onChange={(e) => setPhysicalTargetProjectComponentId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., CW1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Amount</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={physicalTargetTargetAmount}
+                      onChange={(e) => setPhysicalTargetTargetAmount(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit of Measure</label>
+                    <input
+                      type="text"
+                      value={physicalTargetUnitOfMeasure}
+                      onChange={(e) => setPhysicalTargetUnitOfMeasure(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="e.g., No. of Storey"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Financial Tab */}
+              {activePOWTab === 'financial' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Component ID</label>
+                      <input
+                        type="text"
+                        value={projectComponentComponentId}
+                        onChange={(e) => setProjectComponentComponentId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="e.g., 22"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Infra ID</label>
+                      <input
+                        type="text"
+                        value={projectComponentInfraId}
+                        onChange={(e) => setProjectComponentInfraId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="e.g., 212"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={projectComponentLatitude}
+                        onChange={(e) => setProjectComponentLatitude(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.000000"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={projectComponentLongitude}
+                        onChange={(e) => setProjectComponentLongitude(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.000000"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Allotted Amount (₱)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={allotedAmount}
+                        onChange={(e) => setAllotedAmount(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Component Cost (₱)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={estimatedComponentCost}
+                        onChange={(e) => setEstimatedComponentCost(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

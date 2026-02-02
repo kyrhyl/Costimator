@@ -62,9 +62,15 @@ export async function GET(
       );
     }
 
+    const gridData = project.grid || { xLines: [], yLines: [] };
+    
     return NextResponse.json({
       success: true,
-      data: project.grid || { xLines: [], yLines: [] }
+      data: {
+        ...gridData,
+        gridX: gridData.xLines,
+        gridY: gridData.yLines,
+      }
     });
   } catch (error: any) {
     console.error('Error fetching grid:', error);

@@ -66,10 +66,14 @@ export async function PUT(
       return NextResponse.json({ error: 'Wall surface not found' }, { status: 404 });
     }
 
+    // Get grid data from either location (gridX/gridY or grid.xLines/yLines)
+    const gridX = project.gridX || project.grid?.xLines || [];
+    const gridY = project.gridY || project.grid?.yLines || [];
+
     // Validate updated wall surface
     const validation = validateWallSurface(
       body,
-      { gridX: project.gridX || [], gridY: project.gridY || [] },
+      { gridX, gridY },
       project.levels || []
     );
 
@@ -83,7 +87,7 @@ export async function PUT(
     // Recompute geometry
     const geometry = computeWallSurfaceGeometry(
       body,
-      { gridX: project.gridX || [], gridY: project.gridY || [] },
+      { gridX, gridY },
       project.levels || []
     );
 

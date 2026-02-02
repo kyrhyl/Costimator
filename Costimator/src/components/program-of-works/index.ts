@@ -1,6 +1,9 @@
 // Main workspace component
 export { default as ProgramOfWorksWorkspace } from './ProgramOfWorksWorkspace';
 
+// DPWH Form (print-optimized)
+export { default as ProgramOfWorksForm } from './ProgramOfWorksForm';
+
 // Individual components (for custom layouts)
 export { default as ProjectDetailsCard } from './ProjectDetailsCard';
 export { default as FinancialSummaryCard } from './FinancialSummaryCard';

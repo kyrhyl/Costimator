@@ -53,10 +53,19 @@ export async function POST(
 
     const body = await request.json();
 
+    // Get grid data from either location (gridX/gridY or grid.xLines/yLines)
+    const gridX = project.gridX || project.grid?.xLines || [];
+    const gridY = project.gridY || project.grid?.yLines || [];
+    
+    console.log('Wall Surface Creation - Grid Data:');
+    console.log('  gridX:', gridX.map((g: any) => g.label).join(', ') || 'EMPTY');
+    console.log('  gridY:', gridY.map((g: any) => g.label).join(', ') || 'EMPTY');
+    console.log('  Request:', JSON.stringify(body.gridLine));
+
     // Validate wall surface
     const validation = validateWallSurface(
       body,
-      { gridX: project.gridX || [], gridY: project.gridY || [] },
+      { gridX, gridY },
       project.levels || []
     );
 
@@ -67,10 +76,10 @@ export async function POST(
       );
     }
 
-    // Compute geometry
+    // Compute geometry (using same grid data as validation)
     const geometry = computeWallSurfaceGeometry(
       body,
-      { gridX: project.gridX || [], gridY: project.gridY || [] },
+      { gridX, gridY },
       project.levels || []
     );
 
