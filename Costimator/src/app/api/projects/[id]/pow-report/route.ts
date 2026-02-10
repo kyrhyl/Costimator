@@ -124,11 +124,13 @@ export async function GET(
     
     const partDescriptions = await getPartDescriptionsFromDB();
     const worksItems = groupItemsByPart(allItems, partDescriptions);
+    const itemizedParts = groupItemsByPartDetailed(allItems, partDescriptions);
     
     console.log('Works Items Grouped:', worksItems.length, 'parts found');
     worksItems.forEach((item: any, idx: number) => {
       console.log(`  Part ${idx + 1}:`, item.part, '-', item.items.length, 'items');
     });
+    console.log('Itemized Parts:', itemizedParts.length, 'parts with detailed items');
     const expenditureBreakdown = calculateExpenditureBreakdown(allItems);
 
     const totalDirectCost = boqItems.reduce((sum, item) => sum + (item.directCost || 0), 0);
@@ -214,14 +216,15 @@ export async function GET(
         header,
         projectComponent,
         fundingSource,
-        physicalTarget,  // NEW
-        allottedAmount,  // NEW
-        estimatedComponentCost,  // NEW
+        physicalTarget,
+        allottedAmount,
+        estimatedComponentCost,
         worksItems,
+        itemizedParts,
         breakdown: {
           ...expenditureBreakdown,
-          eao,  // NEW
-          eaoPercentage,  // NEW
+          eao,
+          eaoPercentage,
         },
         signatories,
         _debug: {
@@ -366,6 +369,102 @@ function normalizePart(part?: string): string {
   if (raw.startsWith('PART') && raw.length === 5) return `PART ${raw.slice(-1)}`;
   if (raw.length === 1) return `PART ${raw}`;
   return `PART ${raw}`;
+}
+
+interface DetailedLineItem {
+  payItemNumber: string;
+  payItemDescription: string;
+  quantity: number;
+  quantityEvaluated: number;
+  unitOfMeasurement: string;
+  directCostTotal: number;
+  directCostTotalEvaluated: number;
+  directCostUnit: number;
+  directCostUnitEvaluated: number;
+  totalUnitCost: number;
+  totalUnitCostEvaluated: number;
+  percentDirectCost: number;
+}
+
+interface DetailedPartGroup {
+  part: string;
+  partDescription: string;
+  division: string;
+  items: DetailedLineItem[];
+  partTotal: number;
+  partPercent: number;
+}
+
+function groupItemsByPartDetailed(boqItems: any[], partDescriptions: Record<string, string>): DetailedPartGroup[] {
+  const partMap = new Map<string, { items: DetailedLineItem[]; partTotal: number }>();
+
+  boqItems.forEach((item) => {
+    let part: string;
+    
+    if (item.part) {
+      part = normalizePart(item.part);
+    } else if (item.templateId && (item.templateId as any)?.part) {
+      part = normalizePart((item.templateId as any).part);
+    } else if (item.category) {
+      part = normalizePart(item.category);
+    } else {
+      part = 'PART C';
+    }
+    
+    const partKey = part;
+
+    if (!partMap.has(partKey)) {
+      partMap.set(partKey, { items: [], partTotal: 0 });
+    }
+
+    const partData = partMap.get(partKey)!;
+    const directCost = item.directCost || 0;
+    const quantity = item.quantity || 0;
+    const ocmCost = item.ocmCost || 0;
+    const vatCost = item.vatCost || 0;
+    const totalWithOverhead = directCost + ocmCost + vatCost;
+    
+    const unitCost = quantity > 0 ? directCost / quantity : 0;
+    const totalUnitCost = quantity > 0 ? totalWithOverhead / quantity : 0;
+    
+    partData.items.push({
+      payItemNumber: item.payItemNumber || '',
+      payItemDescription: item.payItemDescription || '',
+      quantity: quantity,
+      quantityEvaluated: quantity,
+      unitOfMeasurement: item.unitOfMeasurement || '',
+      directCostTotal: directCost,
+      directCostTotalEvaluated: directCost,
+      directCostUnit: unitCost,
+      directCostUnitEvaluated: unitCost,
+      totalUnitCost: totalUnitCost,
+      totalUnitCostEvaluated: totalUnitCost,
+      percentDirectCost: 0
+    });
+    partData.partTotal += directCost;
+  });
+
+  const totalDirectCost = boqItems.reduce((sum, item) => sum + (item.directCost || 0), 0);
+
+  return Array.from(partMap.entries())
+    .map(([part, data]) => ({
+      part,
+      partDescription: partDescriptions[part] || 'Other Works',
+      division: getDivisionForPart(part),
+      items: data.items.map(item => ({
+        ...item,
+        percentDirectCost: totalDirectCost > 0 ? (item.directCostTotal / totalDirectCost) * 100 : 0
+      })),
+      partTotal: data.partTotal,
+      partPercent: totalDirectCost > 0 ? (data.partTotal / totalDirectCost) * 100 : 0
+    }))
+    .sort((a, b) => {
+      const partOrder = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+      const aOrder = partOrder.indexOf(a.part.replace('PART ', ''));
+      const bOrder = partOrder.indexOf(b.part.replace('PART ', ''));
+      if (aOrder !== -1 && bOrder !== -1) return aOrder - bOrder;
+      return a.part.localeCompare(b.part);
+    });
 }
 
 function calculateExpenditureBreakdown(boqItems: any[]): {
