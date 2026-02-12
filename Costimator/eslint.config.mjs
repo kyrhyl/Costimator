@@ -1,23 +1,23 @@
-import { FlatCompat } from '@eslint/eslintrc';
-import { fileURLToPath } from 'url';
-import path from 'path';
+import nextConfig from 'eslint-config-next';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+const customIgnores = {
+  ignores: ['coverage/**'],
+};
 
 export default [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  customIgnores,
+  ...nextConfig,
   {
     rules: {
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'react-hooks/exhaustive-deps': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/static-components': 'off',
       'react/no-unescaped-entities': 'off',
       '@next/next/no-html-link-for-pages': 'off',
+      'import/no-anonymous-default-export': 'off',
     },
   },
 ];

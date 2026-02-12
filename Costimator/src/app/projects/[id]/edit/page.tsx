@@ -42,6 +42,7 @@ export default function EditProjectPage() {
   const [appropriation, setAppropriation] = useState('');
   const [contractId, setContractId] = useState('');
   const [projectType, setProjectType] = useState('Road Construction');
+  const [powMode, setPowMode] = useState<'takeoff' | 'manual'>('takeoff');
   const [status, setStatus] = useState('Planning');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -115,6 +116,7 @@ export default function EditProjectPage() {
         setAppropriation(project.appropriation?.toString() || '');
         setContractId(project.contractId || '');
         setProjectType(project.projectType || 'Road Construction');
+        setPowMode(project.powMode || 'takeoff');
         setStatus(project.status || 'Planning');
         setDescription(project.description || '');
         setHaulingCostPerKm(project.haulingCostPerKm || 0);
@@ -197,6 +199,7 @@ export default function EditProjectPage() {
       appropriation: appropriation ? parseFloat(appropriation) : undefined,
       contractId,
       projectType,
+      powMode,
       status,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
@@ -483,6 +486,23 @@ export default function EditProjectPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Program of Works Mode
+                </label>
+                <select
+                  value={powMode}
+                  onChange={(e) => setPowMode(e.target.value as 'takeoff' | 'manual')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="takeoff">Takeoff Linked</option>
+                  <option value="manual">Manual BOQ Input</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Select “Manual BOQ Input” when the Program of Works will be prepared independently of quantity takeoff.
+                </p>
               </div>
 
               <div>

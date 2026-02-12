@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import Project from '@/models/Project';
 import ProjectBOQ from '@/models/ProjectBOQ';
-import ProjectEstimate from '@/models/ProjectEstimate';
+import ProjectEstimate, { IProjectEstimate } from '@/models/ProjectEstimate';
 import { z } from 'zod';
 
 const GenerateEstimateSchema = z.object({
@@ -117,7 +117,7 @@ export async function POST(
     // Get next version number
     const lastEstimate = await ProjectEstimate.findOne({ projectId: id })
       .sort({ version: -1 })
-      .lean();
+      .lean() as IProjectEstimate | null;
     const nextVersion = lastEstimate ? lastEstimate.version + 1 : 1;
 
     // Create estimate

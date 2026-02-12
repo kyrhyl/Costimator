@@ -15,6 +15,7 @@ const ProjectUpdateSchema = z.object({
   appropriation: z.union([z.string(), z.number()]).optional(),
   contractId: z.string().optional(),
   projectType: z.string().optional(),
+  powMode: z.enum(['takeoff', 'manual']).optional(),
   status: z.enum(['Planning', 'Approved', 'Ongoing', 'Completed', 'Cancelled']).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -75,6 +76,20 @@ const ProjectUpdateSchema = z.object({
   }).optional(),
   allotedAmount: z.number().optional(),
   estimatedComponentCost: z.number().optional(),
+  manualPowMetadata: z.object({
+    lastUpdatedBy: z.string().optional(),
+    lastUpdatedAt: z.string().optional(),
+    notes: z.string().optional(),
+  }).optional(),
+  manualPowConfig: z
+    .object({
+      laborLocation: z.string().optional(),
+      cmpdVersion: z.string().optional(),
+      district: z.string().optional(),
+      vatPercentage: z.number().optional(),
+      notes: z.string().optional(),
+    })
+    .optional(),
 });
 
 // GET /api/projects/:id - Get single project with estimates

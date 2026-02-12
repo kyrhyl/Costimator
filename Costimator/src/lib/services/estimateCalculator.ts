@@ -6,8 +6,8 @@
 import DUPATemplate from '@/models/DUPATemplate';
 import Material from '@/models/Material';
 import MaterialPrice from '@/models/MaterialPrice';
-import Equipment from '@/models/Equipment';
-import LaborRate from '@/models/LaborRate';
+import Equipment, { IEquipment } from '@/models/Equipment';
+import LaborRate, { ILaborRate } from '@/models/LaborRate';
 import { computeHaulingCost, HaulingTemplate } from '@/lib/calc/hauling';
 import { getDPWHMarkupRates } from '@/lib/utils/dpwhMarkups';
 import { normalizePayItemNumber } from '@/lib/costing/utils/normalize-pay-item';
@@ -64,7 +64,7 @@ export async function calculateEstimate(
   // 1. Fetch labor rates for location
   const laborRates = await LaborRate.findOne({ location: options.location })
     .sort({ effectiveDate: -1 })
-    .lean();
+    .lean() as ILaborRate | null;
   
   if (!laborRates) {
     throw new Error(`No labor rates found for location: ${options.location}`);
@@ -133,13 +133,13 @@ export async function calculateEstimate(
     }
   }
 
-  const equipmentMap = new Map<string, any>();
+  const equipmentMap = new Map<string, IEquipment>();
   if (equipmentIds.size > 0) {
     const equipmentDocs = await Equipment.find({
       _id: { $in: Array.from(equipmentIds) }
-    }).lean();
+    }).lean() as unknown as IEquipment[];
     for (const equipment of equipmentDocs) {
-      equipmentMap.set(equipment._id.toString(), equipment);
+      equipmentMap.set((equipment._id as mongoose.Types.ObjectId).toString(), equipment);
     }
   }
 
@@ -301,17 +301,17 @@ export async function calculateEstimate(
     estimateLines,
     laborRateSnapshot: {
       location: options.location,
-      effectiveDate: laborRates.effectiveDate,
+      effectiveDate: (laborRates as ILaborRate).effectiveDate,
       rates: {
-        foreman: laborRates.foreman,
-        leadman: laborRates.leadman,
-        equipmentOperatorHeavy: laborRates.equipmentOperatorHeavy,
-        equipmentOperatorHighSkilled: laborRates.equipmentOperatorHighSkilled,
-        equipmentOperatorLightSkilled: laborRates.equipmentOperatorLightSkilled,
-        driver: laborRates.driver,
-        laborSkilled: laborRates.laborSkilled,
-        laborSemiSkilled: laborRates.laborSemiSkilled,
-        laborUnskilled: laborRates.laborUnskilled,
+        foreman: (laborRates as ILaborRate).foreman,
+        leadman: (laborRates as ILaborRate).leadman,
+        equipmentOperatorHeavy: (laborRates as ILaborRate).equipmentOperatorHeavy,
+        equipmentOperatorHighSkilled: (laborRates as ILaborRate).equipmentOperatorHighSkilled,
+        equipmentOperatorLightSkilled: (laborRates as ILaborRate).equipmentOperatorLightSkilled,
+        driver: (laborRates as ILaborRate).driver,
+        laborSkilled: (laborRates as ILaborRate).laborSkilled,
+        laborSemiSkilled: (laborRates as ILaborRate).laborSemiSkilled,
+        laborUnskilled: (laborRates as ILaborRate).laborUnskilled,
       }
     },
     costSummary: {

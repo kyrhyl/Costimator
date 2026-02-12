@@ -125,10 +125,14 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
           <CreateEstimateModal
             projectId={projectId}
             onClose={() => setShowCreateModal(false)}
-            onSuccess={(estimateId) => {
+            onSuccess={(result) => {
               setShowCreateModal(false);
               loadEstimates();
-              router.push(`/cost-estimates/${estimateId}`);
+              if (result?.manualMode) {
+                router.push(`/projects/${projectId}/program-of-works?mode=manual-setup`);
+              } else if (result?.estimateId) {
+                router.push(`/cost-estimates/${result.estimateId}`);
+              }
             }}
           />
         )}
@@ -145,6 +149,15 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
           <p className="text-sm text-gray-600 mt-1">{estimates.length} estimate(s) available</p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href={`/projects/${projectId}/program-of-works`}
+            className="inline-flex items-center gap-2 border border-dpwh-blue-200 text-dpwh-blue-700 bg-white px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5v2h6V5m4 4H5v10a2 2 0 002 2h10a2 2 0 002-2z" />
+            </svg>
+            Open Workspace
+          </Link>
           <Link
             href={`/projects/${projectId}/pow-report`}
             className="inline-flex items-center gap-2 bg-dpwh-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-dpwh-blue-700 transition-all"
@@ -303,10 +316,14 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
         <CreateEstimateModal
           projectId={projectId}
           onClose={() => setShowCreateModal(false)}
-          onSuccess={(estimateId) => {
+          onSuccess={(result) => {
             setShowCreateModal(false);
             loadEstimates();
-            router.push(`/cost-estimates/${estimateId}`);
+            if (result?.manualMode) {
+              router.push(`/projects/${projectId}/program-of-works?mode=manual-setup`);
+            } else if (result?.estimateId) {
+              router.push(`/cost-estimates/${result.estimateId}`);
+            }
           }}
         />
       )}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
-import BOQ from '@/models/BOQ';
+import BOQ, { IBOQ } from '@/models/BOQ';
 import CalcRun from '@/models/CalcRun';
 import Project from '@/models/Project';
 import mongoose from 'mongoose';
@@ -148,7 +148,7 @@ export async function POST(
       console.log('[BOQ Save] Finding latest version...');
       const latestBOQ = await BOQ.findOne({ projectId })
         .sort({ version: -1 })
-        .lean();
+        .lean() as IBOQ | null;
       
       versionNumber = latestBOQ ? (latestBOQ.version || 1) + 1 : 1;
       console.log('[BOQ Save] New version number:', versionNumber);

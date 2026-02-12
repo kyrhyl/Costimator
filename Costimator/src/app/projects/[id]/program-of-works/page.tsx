@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProjectDetailsCard from '@/components/program-of-works/ProjectDetailsCard';
-import { IProject } from '@/models/Project';
 import FinancialSummaryCard from '@/components/program-of-works/FinancialSummaryCard';
 import DescriptionOfWorksTable, { type WorksPart } from '@/components/program-of-works/DescriptionOfWorksTable';
 import EquipmentRequirements, { type Equipment } from '@/components/program-of-works/EquipmentRequirements';
@@ -16,12 +15,14 @@ import ProgramOfWorksRevisionHistory from '@/components/program-of-works/Program
 import ProgramOfWorksHauling from '@/components/program-of-works/ProgramOfWorksHauling';
 import DigitalSignOffs, { type Signatory } from '@/components/program-of-works/DigitalSignOffs';
 import CreateEstimateModal from '@/components/cost-estimates/CreateEstimateModal';
+import ManualPowManager, { type ProjectBoqItem } from '@/components/program-of-works/ManualPowManager';
 
 interface Project {
   _id: string;
   projectName: string;
   projectLocation: string;
   district: string;
+  cmpdVersion?: string;
   implementingOffice: string;
   appropriation: number;
   distanceFromOffice?: number;
@@ -45,6 +46,14 @@ interface Project {
   workableDays?: number;
   unworkableDays?: number;
   totalDuration?: number;
+  powMode?: 'takeoff' | 'manual';
+  manualPowConfig?: {
+    laborLocation?: string;
+    cmpdVersion?: string;
+    district?: string;
+    vatPercentage?: number;
+    notes?: string;
+  } | null;
 }
 
 interface SectionConfig {
@@ -65,12 +74,16 @@ export default function ProgramOfWorksWorkspacePage() {
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [selectedEstimate, setSelectedEstimate] = useState<any>(null);
   const [loadingEstimate, setLoadingEstimate] = useState(false);
+  const [manualBoqItems, setManualBoqItems] = useState<ProjectBoqItem[]>([]);
+  const [loadingManualBoq, setLoadingManualBoq] = useState(false);
+  const [powModeUpdating, setPowModeUpdating] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [itemSearch, setItemSearch] = useState('');
   const [partFilter, setPartFilter] = useState('all');
   const estimateIdFromQuery = searchParams.get('estimateId');
+  const isManualPow = project?.powMode === 'manual';
 
   useEffect(() => {
     if (projectId) {
@@ -92,6 +105,12 @@ export default function ProgramOfWorksWorkspacePage() {
       loadEstimateDetail(selectedEstimateId);
     }
   }, [selectedEstimateId]);
+
+  useEffect(() => {
+    if (projectId && project?.powMode === 'manual') {
+      loadManualBoq();
+    }
+  }, [projectId, project?.powMode]);
 
   const fetchProject = async () => {
     try {
@@ -132,6 +151,10 @@ export default function ProgramOfWorksWorkspacePage() {
     }
   };
 
+  const handleManualVersionSaved = async () => {
+    await loadEstimates();
+  };
+
   const loadEstimateDetail = async (estimateId: string) => {
     setLoadingEstimate(true);
     try {
@@ -145,6 +168,22 @@ export default function ProgramOfWorksWorkspacePage() {
     }
   };
 
+  const loadManualBoq = async () => {
+    if (!projectId) return;
+    setLoadingManualBoq(true);
+    try {
+      const res = await fetch(`/api/project-boq?projectId=${projectId}`);
+      const data = await res.json();
+      if (data.success) {
+        setManualBoqItems(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load manual BOQ items:', err);
+    } finally {
+      setLoadingManualBoq(false);
+    }
+  };
+
   const handleSectionClick = (sectionId: string) => {
     setActiveSection(sectionId);
   };
@@ -152,6 +191,45 @@ export default function ProgramOfWorksWorkspacePage() {
   const handlePartClick = (part: string) => {
     if (selectedEstimateId) {
       router.push(`/cost-estimates/${selectedEstimateId}?filter=${part}`);
+    }
+  };
+
+  const handlePowModeChange = async (mode: 'takeoff' | 'manual') => {
+    if (!projectId || project?.powMode === mode) return;
+
+    if (mode === 'takeoff' && manualBoqItems.length > 0) {
+      const shouldProceed = confirm('Switching to takeoff-linked mode will hide manual BOQ lines. Continue?');
+      if (!shouldProceed) {
+        return;
+      }
+    }
+
+    try {
+      setPowModeUpdating(true);
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          powMode: mode,
+          manualPowMetadata: mode === 'manual'
+            ? { lastUpdatedAt: new Date().toISOString(), lastUpdatedBy: 'manual-input' }
+            : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || 'Failed to update Program of Works mode');
+        return;
+      }
+      await fetchProject();
+      if (mode === 'manual') {
+        await loadManualBoq();
+      }
+    } catch (err) {
+      console.error('Failed to update Program of Works mode:', err);
+      alert('Failed to update Program of Works mode.');
+    } finally {
+      setPowModeUpdating(false);
     }
   };
 
@@ -165,15 +243,106 @@ export default function ProgramOfWorksWorkspacePage() {
     return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
   };
 
-  const normalizePart = (part?: string) => {
-    const raw = (part || 'C').toString().trim().toUpperCase();
-    if (raw.startsWith('PART ')) return raw;
-    if (raw.startsWith('PART') && raw.length === 5) {
-      return `PART ${raw.slice(-1)}`;
-    }
-    if (raw.length === 1) return `PART ${raw}`;
-    return `PART ${raw}`;
+const normalizePart = (part?: string) => {
+  const raw = (part || 'C').toString().trim().toUpperCase();
+  if (raw.startsWith('PART ')) return raw;
+  if (raw.startsWith('PART') && raw.length === 5) {
+    return `PART ${raw.slice(-1)}`;
+  }
+  if (raw.length === 1) return `PART ${raw}`;
+  return `PART ${raw}`;
+};
+
+const PART_PREFIX_MAP: Record<string, string> = {
+  '1': 'PART A',
+  '2': 'PART B',
+  '3': 'PART C',
+  '4': 'PART D',
+  '5': 'PART E',
+  '6': 'PART F',
+  '7': 'PART G',
+  '8': 'PART H',
+  '9': 'PART I',
+};
+
+const derivePartLabel = (part?: string, payItemNumber?: string) => {
+  if (part && part.trim()) {
+    return normalizePart(part);
+  }
+  if (!payItemNumber) {
+    return 'PART C';
+  }
+  const digits = payItemNumber.replace(/[^0-9]/g, '');
+  const firstDigit = digits.charAt(0);
+  return normalizePart(PART_PREFIX_MAP[firstDigit] || 'PART C');
+};
+
+const buildManualEstimate = (items: ProjectBoqItem[]) => {
+  if (!items || items.length === 0) {
+    return null;
+  }
+
+  const estimateLines = items.map((item) => {
+    const quantity = Number(item.quantity || 0);
+    const laborPerUnit = (item.laborItems || []).reduce((sum, entry) => sum + (entry?.amount || 0), 0);
+    const equipmentPerUnit = (item.equipmentItems || []).reduce((sum, entry) => sum + (entry?.amount || 0), 0);
+    const materialPerUnit = (item.materialItems || []).reduce((sum, entry) => sum + (entry?.amount || 0), 0);
+    const directPerUnit = typeof item.directCost === 'number'
+      ? item.directCost
+      : laborPerUnit + equipmentPerUnit + materialPerUnit;
+    const unitPrice = Number(item.unitCost ?? item.totalCost ?? directPerUnit);
+    const totalAmount = unitPrice * quantity;
+
+    return {
+      _id: item._id,
+      payItemNumber: item.payItemNumber,
+      payItemDescription: item.payItemDescription,
+      unit: item.unitOfMeasurement,
+      quantity,
+      part: derivePartLabel(item.part, item.payItemNumber),
+      laborCost: laborPerUnit * quantity,
+      equipmentCost: equipmentPerUnit * quantity,
+      materialCost: materialPerUnit * quantity,
+      directCost: directPerUnit,
+      ocmCost: (item.ocmCost || 0) * quantity,
+      cpCost: (item.cpCost || 0) * quantity,
+      vatCost: (item.vatCost || 0) * quantity,
+      unitPrice,
+      totalAmount,
+      laborItems: item.laborItems || [],
+      equipmentItems: item.equipmentItems || [],
+      materialItems: item.materialItems || [],
+    };
+  });
+
+  const totalDirectCost = items.reduce((sum, item) => sum + (Number(item.directCost || 0) * Number(item.quantity || 0)), 0);
+  const totalOCM = items.reduce((sum, item) => sum + (Number(item.ocmCost || 0) * Number(item.quantity || 0)), 0);
+  const totalCP = items.reduce((sum, item) => sum + (Number(item.cpCost || 0) * Number(item.quantity || 0)), 0);
+  const totalVAT = items.reduce((sum, item) => sum + (Number(item.vatCost || 0) * Number(item.quantity || 0)), 0);
+  const subtotalWithMarkup = totalDirectCost + totalOCM + totalCP;
+  const computedGrandTotal = subtotalWithMarkup + totalVAT;
+  const amountGrandTotal = items.reduce(
+    (sum, item) => sum + (item.totalAmount ?? (item.totalCost ?? item.unitCost ?? 0) * Number(item.quantity || 0)),
+    0
+  );
+
+  return {
+    _id: 'manual-estimate',
+    estimateName: 'Manual Program of Works',
+    estimateType: 'manual',
+    status: 'draft',
+    costSummary: {
+      totalDirectCost,
+      totalOCM,
+      totalCP,
+      subtotalWithMarkup,
+      totalVAT,
+      grandTotal: amountGrandTotal || computedGrandTotal,
+      rateItemsCount: items.length,
+    },
+    estimateLines,
   };
+};
 
   const transformToWorksParts = (estimate: any): WorksPart[] => {
     const lines = estimate?.estimateLines || [];
@@ -248,10 +417,13 @@ export default function ProgramOfWorksWorkspacePage() {
   };
 
   const reportLink = projectId ? `/projects/${projectId}/pow-report` : undefined;
-  const worksParts = useMemo(() => (selectedEstimate ? transformToWorksParts(selectedEstimate) : []), [selectedEstimate]);
-  const equipment = useMemo(() => (selectedEstimate ? transformToEquipment(selectedEstimate) : []), [selectedEstimate]);
+  const manualEstimate = useMemo(() => (manualBoqItems.length ? buildManualEstimate(manualBoqItems) : null), [manualBoqItems]);
+  const activeEstimate = isManualPow ? manualEstimate : selectedEstimate;
+
+  const worksParts = useMemo(() => (activeEstimate ? transformToWorksParts(activeEstimate) : []), [activeEstimate]);
+  const equipment = useMemo(() => (activeEstimate ? transformToEquipment(activeEstimate) : []), [activeEstimate]);
   const expenditureBreakdown = useMemo(
-    () => (selectedEstimate ? transformToExpenditure(selectedEstimate) : {
+    () => (activeEstimate ? transformToExpenditure(activeEstimate) : {
       laborCost: 0,
       materialCost: 0,
       equipmentCost: 0,
@@ -260,12 +432,12 @@ export default function ProgramOfWorksWorkspacePage() {
       vat: 0,
       totalEstimatedCost: 0,
     }),
-    [selectedEstimate]
+    [activeEstimate]
   );
 
   const itemizedGroups = useMemo(() => {
-    const lines = selectedEstimate?.estimateLines || [];
-    const total = selectedEstimate?.costSummary?.totalDirectCost || 0;
+    const lines = activeEstimate?.estimateLines || [];
+    const total = activeEstimate?.costSummary?.totalDirectCost || 0;
     const partDescriptions: Record<string, string> = {
       'PART A': 'Facilities for the Engineer',
       'PART B': 'Other General Requirements',
@@ -318,7 +490,7 @@ export default function ProgramOfWorksWorkspacePage() {
 
     const groups = Array.from(groupsMap.values());
     return { groups, total };
-  }, [selectedEstimate, itemSearch, partFilter]);
+  }, [activeEstimate, itemSearch, partFilter]);
   const signatories = useMemo<Signatory[]>(() => ([
     { id: 'sig-1', name: 'Project Engineer', role: 'Prepared By', status: 'pending' },
     { id: 'sig-2', name: 'District Engineer', role: 'Reviewed By', status: 'pending' },
@@ -461,22 +633,24 @@ export default function ProgramOfWorksWorkspacePage() {
             ))}
           </nav>
 
-          <div className="p-2 border-t border-gray-200">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                isSidebarCollapsed
-                  ? 'justify-center bg-dpwh-green-50 text-dpwh-green-700 hover:bg-dpwh-green-100'
-                  : 'bg-dpwh-green-600 text-white hover:bg-dpwh-green-700'
-              }`}
-              title="New Program of Works"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              {!isSidebarCollapsed && <span className="text-sm font-semibold">New Program of Works</span>}
-            </button>
-          </div>
+          {!isManualPow && (
+            <div className="p-2 border-t border-gray-200">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                  isSidebarCollapsed
+                    ? 'justify-center bg-dpwh-green-50 text-dpwh-green-700 hover:bg-dpwh-green-100'
+                    : 'bg-dpwh-green-600 text-white hover:bg-dpwh-green-700'
+                }`}
+                title="New Program of Works"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                {!isSidebarCollapsed && <span className="text-sm font-semibold">New Program of Works</span>}
+              </button>
+            </div>
+          )}
         </aside>
 
         {/* Main Content */}
@@ -490,20 +664,82 @@ export default function ProgramOfWorksWorkspacePage() {
               <p className="text-sm text-gray-600">{project?.projectLocation || 'Location not specified'}</p>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 bg-dpwh-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-dpwh-green-700 transition-all"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                New Program of Works
-              </button>
+              {!isManualPow && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center gap-2 bg-dpwh-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-dpwh-green-700 transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Program of Works
+                </button>
+              )}
             </div>
           </div>
 
           <div className="flex-1 overflow-auto p-6">
-            {estimates.length > 1 && (
+            {project && (
+              <div className="mb-6 flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">
+                    Program of Works Mode: {isManualPow ? 'Manual BOQ Input' : 'Takeoff Linked'}
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    {isManualPow
+                      ? 'Manual entries are independent of quantity takeoff. Add BOQ lines directly from DUPA templates.'
+                      : 'This Program of Works reflects cost estimates generated from quantity takeoff versions.'}
+                  </p>
+                </div>
+                {!isManualPow && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handlePowModeChange('takeoff')}
+                      disabled={powModeUpdating || !projectId}
+                      className={`rounded-md px-4 py-2 text-sm font-semibold border transition ${
+                        !isManualPow
+                          ? 'bg-dpwh-blue-600 text-white border-dpwh-blue-600'
+                          : 'bg-white text-blue-900 border-blue-200 hover:border-blue-400'
+                      } ${powModeUpdating ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      Takeoff Linked
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePowModeChange('manual')}
+                      disabled={powModeUpdating || !projectId}
+                      className={`rounded-md px-4 py-2 text-sm font-semibold border transition ${
+                        isManualPow
+                          ? 'bg-dpwh-blue-600 text-white border-dpwh-blue-600'
+                          : 'bg-white text-blue-900 border-blue-200 hover:border-blue-400'
+                      } ${powModeUpdating ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      Manual Input
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isManualPow && (
+              <div className="mb-6">
+              <ManualPowManager
+                projectId={projectId}
+                projectName={project?.projectName || 'Project'}
+                projectLocation={project?.projectLocation}
+                district={project?.district}
+                manualConfig={project?.manualPowConfig || undefined}
+                manualItems={manualBoqItems}
+                loading={loadingManualBoq}
+                onReload={loadManualBoq}
+                onManualConfigSaved={fetchProject}
+                onManualVersionSaved={handleManualVersionSaved}
+              />
+              </div>
+            )}
+
+            {!isManualPow && estimates.length > 1 && (
               <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Program of Works Version
@@ -523,7 +759,7 @@ export default function ProgramOfWorksWorkspacePage() {
               </div>
             )}
 
-            {estimates.length === 0 ? (
+            {!isManualPow && estimates.length === 0 ? (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-12 text-center">
                 <div className="text-6xl mb-4">📋</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -542,14 +778,28 @@ export default function ProgramOfWorksWorkspacePage() {
                   Create Program of Works
                 </button>
               </div>
-            ) : loadingEstimate || !selectedEstimate ? (
+            ) : isManualPow && loadingManualBoq ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-dpwh-blue-600 mb-4"></div>
+                  <p className="text-gray-600">Loading manual BOQ entries...</p>
+                </div>
+              </div>
+            ) : !isManualPow && (loadingEstimate || !selectedEstimate) ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-dpwh-blue-600 mb-4"></div>
                   <p className="text-gray-600">Loading program of works...</p>
                 </div>
               </div>
-            ) : (
+            ) : isManualPow && manualBoqItems.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center">
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Start building your manual Program of Works</h3>
+                <p className="text-gray-600">
+                  Use the Manual BOQ manager above to add pay items from DUPA templates.
+                </p>
+              </div>
+            ) : !activeEstimate ? null : (
               <div className="space-y-6">
                 {activeSection === 'overview' && (
                   <div className="space-y-6">
@@ -597,8 +847,8 @@ export default function ProgramOfWorksWorkspacePage() {
                     </div>
 
                     <ProgramOfWorksKpiRow
-                      totalProjectCost={selectedEstimate?.costSummary?.grandTotal || 0}
-                      directCost={selectedEstimate?.costSummary?.totalDirectCost || 0}
+                      totalProjectCost={activeEstimate?.costSummary?.grandTotal || 0}
+                      directCost={activeEstimate?.costSummary?.totalDirectCost || 0}
                       activeComponents={itemizedGroups.groups.length}
                     />
 
@@ -609,11 +859,11 @@ export default function ProgramOfWorksWorkspacePage() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <ProgramOfWorksApprovalStatus
-                        status={selectedEstimate?.status}
-                        preparedBy={selectedEstimate?.preparedBy}
-                        preparedDate={selectedEstimate?.preparedDate}
-                        approvedBy={selectedEstimate?.approvedBy}
-                        approvedDate={selectedEstimate?.approvedDate}
+                        status={activeEstimate?.status}
+                        preparedBy={activeEstimate?.preparedBy}
+                        preparedDate={activeEstimate?.preparedDate}
+                        approvedBy={activeEstimate?.approvedBy}
+                        approvedDate={activeEstimate?.approvedDate}
                       />
                       <ProgramOfWorksRevisionHistory entries={[]} />
                     </div>
@@ -621,16 +871,27 @@ export default function ProgramOfWorksWorkspacePage() {
                 )}
 
                 {activeSection === 'project-details' && project && (
-                  <ProjectDetailsCard project={project as unknown as IProject} />
+                  <ProjectDetailsCard
+                    projectName={project.projectName}
+                    implementingOffice={project.implementingOffice}
+                    location={project.projectLocation}
+                    district={project.district}
+                    fundSource={project.fundSource}
+                    workableDays={project.workableDays}
+                    unworkableDays={project.unworkableDays}
+                    totalDuration={project.totalDuration}
+                    startDate={project.startDate}
+                    endDate={project.endDate}
+                  />
                 )}
 
                 {activeSection === 'financial-summary' && (
                   <FinancialSummaryCard
-                    allottedAmount={project?.appropriation || selectedEstimate?.costSummary?.grandTotal || 0}
+                    allottedAmount={project?.appropriation || activeEstimate?.costSummary?.grandTotal || 0}
                     budgetBreakdown={{
-                      directCosts: selectedEstimate?.costSummary?.totalDirectCost || 0,
-                      indirectCosts: (selectedEstimate?.costSummary?.totalOCM || 0) + (selectedEstimate?.costSummary?.totalCP || 0),
-                      vat: selectedEstimate?.costSummary?.totalVAT || 0,
+                      directCosts: activeEstimate?.costSummary?.totalDirectCost || 0,
+                      indirectCosts: (activeEstimate?.costSummary?.totalOCM || 0) + (activeEstimate?.costSummary?.totalCP || 0),
+                      vat: activeEstimate?.costSummary?.totalVAT || 0,
                     }}
                   />
                 )}
@@ -643,28 +904,19 @@ export default function ProgramOfWorksWorkspacePage() {
                 )}
 
                 {activeSection === 'equipment' && (
-                  <EquipmentRequirements
-                    equipment={equipment}
-                  />
+                  <EquipmentRequirements equipment={equipment} />
                 )}
 
                 {activeSection === 'expenditures' && (
-                  <BreakdownOfExpenditures
-                    breakdown={expenditureBreakdown}
-                  />
+                  <BreakdownOfExpenditures breakdown={expenditureBreakdown} />
                 )}
 
                 {activeSection === 'hauling' && (
-                  <ProgramOfWorksHauling
-                    projectId={projectId}
-                    project={project}
-                  />
+                  <ProgramOfWorksHauling projectId={projectId} project={project} />
                 )}
 
                 {activeSection === 'sign-offs' && (
-                  <DigitalSignOffs
-                    signatories={signatories}
-                  />
+                  <DigitalSignOffs signatories={signatories} />
                 )}
 
                 {activeSection === 'reports' && (
@@ -704,10 +956,14 @@ export default function ProgramOfWorksWorkspacePage() {
         <CreateEstimateModal
           projectId={projectId}
           onClose={() => setShowCreateModal(false)}
-          onSuccess={(estimateId) => {
+          onSuccess={(result) => {
             setShowCreateModal(false);
             loadEstimates();
-            router.push(`/cost-estimates/${estimateId}`);
+            if (result?.manualMode) {
+              router.push(`/projects/${projectId}/program-of-works?mode=manual-setup`);
+            } else if (result?.estimateId) {
+              router.push(`/cost-estimates/${result.estimateId}`);
+            }
           }}
         />
       )}

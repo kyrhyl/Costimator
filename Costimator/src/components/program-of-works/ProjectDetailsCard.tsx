@@ -1,18 +1,37 @@
 'use client';
 
 import { useState } from 'react';
-import { IProject } from '@/models/Project';
 
 interface ProjectDetailsCardProps {
-  project: IProject;
+  projectName: string;
+  implementingOffice: string;
+  location: string;
+  district?: string;
+  fundSource?: string;
+  workableDays?: number;
+  unworkableDays?: number;
+  totalDuration?: number;
+  startDate?: string;
+  endDate?: string;
 }
 
-type Tab = 'overview' | 'timeline' | 'financial' | 'specifications';
+type Tab = 'overview' | 'timeline';
 
-export default function ProjectDetailsCard({ project }: ProjectDetailsCardProps) {
+export default function ProjectDetailsCard({
+  projectName,
+  implementingOffice,
+  location,
+  district,
+  fundSource,
+  workableDays,
+  unworkableDays,
+  totalDuration,
+  startDate,
+  endDate,
+}: ProjectDetailsCardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
-  const formatDate = (date: Date | undefined) => {
+  const formatDate = (date: string | undefined) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -21,16 +40,9 @@ export default function ProjectDetailsCard({ project }: ProjectDetailsCardProps)
     });
   };
 
-  const formatCurrency = (amount: number | undefined) => {
-    if (!amount) return 'N/A';
-    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
-  };
-
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'timeline', label: 'Timeline' },
-    { id: 'financial', label: 'Financial' },
-    { id: 'specifications', label: 'Specifications' },
   ];
 
   return (
@@ -60,27 +72,23 @@ export default function ProjectDetailsCard({ project }: ProjectDetailsCardProps)
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Project Name</label>
-              <p className="text-base font-bold text-gray-900 leading-tight">{project.projectName || 'N/A'}</p>
+              <p className="text-base font-bold text-gray-900 leading-tight">{projectName || 'N/A'}</p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Implementing Office</label>
-              <p className="text-sm font-medium text-gray-900">{project.implementingOffice || 'N/A'}</p>
+              <p className="text-sm font-medium text-gray-900">{implementingOffice || 'N/A'}</p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Project Location</label>
-              <p className="text-sm font-medium text-gray-900">{project.projectLocation || 'N/A'}</p>
+              <p className="text-sm font-medium text-gray-900">{location || 'N/A'}</p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">District</label>
-              <p className="text-sm font-medium text-gray-900">{project.district || 'N/A'}</p>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Address</label>
-              <p className="text-sm font-medium text-gray-900">{project.address || 'N/A'}</p>
+              <p className="text-sm font-medium text-gray-900">{district || 'N/A'}</p>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Infra Type</label>
-              <p className="text-sm font-medium text-gray-900">{project.physicalTarget?.infraType || 'N/A'}</p>
+              <label className="block text-xs text-gray-500 mb-1">Fund Source</label>
+              <p className="text-sm font-medium text-gray-900">{fundSource || 'N/A'}</p>
             </div>
           </div>
         )}
@@ -88,110 +96,28 @@ export default function ProjectDetailsCard({ project }: ProjectDetailsCardProps)
         {activeTab === 'timeline' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Target Start Date</label>
-              <p className="text-sm font-medium text-gray-900">{formatDate(project.targetStartDate)}</p>
+              <label className="block text-xs text-gray-500 mb-1">Start Date</label>
+              <p className="text-sm font-medium text-gray-900">{formatDate(startDate)}</p>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Target Completion Date</label>
-              <p className="text-sm font-medium text-gray-900">{formatDate(project.targetCompletionDate)}</p>
+              <label className="block text-xs text-gray-500 mb-1">End Date</label>
+              <p className="text-sm font-medium text-gray-900">{formatDate(endDate)}</p>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Contract Duration</label>
+              <label className="block text-xs text-gray-500 mb-1">Total Duration</label>
               <p className="text-sm font-medium text-gray-900">
-                {project.contractDurationCD ? `${project.contractDurationCD.toFixed(2)} CD` : 'N/A'}
+                {totalDuration ? `${totalDuration} days` : 'N/A'}
               </p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Workable Days</label>
-              <p className="text-sm font-medium text-gray-900">{project.workingDays ? `${project.workingDays} CD` : 'N/A'}</p>
+              <p className="text-sm font-medium text-gray-900">{workableDays ? `${workableDays} days` : 'N/A'}</p>
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs text-gray-500 mb-1">Unworkable Days</label>
               <p className="text-sm font-medium text-gray-900">
-                {project.unworkableDays
-                  ? `Sundays: ${project.unworkableDays.sundays || 0}, Holidays: ${project.unworkableDays.holidays || 0}, Rainy Days: ${project.unworkableDays.rainyDays || 0}`
-                  : 'N/A'}
+                {unworkableDays ? `${unworkableDays} days` : 'N/A'}
               </p>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'financial' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Fund Source</label>
-              <p className="text-sm font-medium text-gray-900">{project.fundSource?.fundingOrganization || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Project ID</label>
-              <p className="text-sm font-medium text-gray-900">{project.fundSource?.projectId || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Funding Agreement</label>
-              <p className="text-sm font-medium text-gray-900">{project.fundSource?.fundingAgreement || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Organization</label>
-              <p className="text-sm font-medium text-gray-900">{project.fundSource?.fundingOrganization || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Allotted Amount</label>
-              <p className="text-sm font-medium text-green-700">{formatCurrency(project.allotedAmount)}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Est. Component Cost</label>
-              <p className="text-sm font-medium text-green-700">{formatCurrency(project.estimatedComponentCost)}</p>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'specifications' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Component ID</label>
-              <p className="text-sm font-medium text-gray-900">{project.projectComponent?.componentId || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Infra ID</label>
-              <p className="text-sm font-medium text-gray-900">{project.projectComponent?.infraId || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Chainage Start</label>
-              <p className="text-sm font-medium text-gray-900">{project.projectComponent?.chainage?.start || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Chainage End</label>
-              <p className="text-sm font-medium text-gray-900">{project.projectComponent?.chainage?.end || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Station Limits Start</label>
-              <p className="text-sm font-medium text-gray-900">{project.projectComponent?.stationLimits?.start || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Station Limits End</label>
-              <p className="text-sm font-medium text-gray-900">{project.projectComponent?.stationLimits?.end || 'N/A'}</p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Latitude</label>
-              <p className="text-sm font-medium text-gray-900">
-                {project.projectComponent?.coordinates?.latitude?.toString() || 'N/A'}
-              </p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Longitude</label>
-              <p className="text-sm font-medium text-gray-900">
-                {project.projectComponent?.coordinates?.longitude?.toString() || 'N/A'}
-              </p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Target Amount</label>
-              <p className="text-sm font-medium text-gray-900">
-                {project.physicalTarget?.targetAmount?.toLocaleString() || 'N/A'}
-              </p>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Unit of Measure</label>
-              <p className="text-sm font-medium text-gray-900">{project.physicalTarget?.unitOfMeasure || 'N/A'}</p>
             </div>
           </div>
         )}

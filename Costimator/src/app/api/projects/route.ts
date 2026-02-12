@@ -13,6 +13,7 @@ const ProjectSchema = z.object({
   appropriation: z.coerce.number().min(0).default(0),
   contractId: z.string().optional(),
   projectType: z.string().optional(),
+  powMode: z.enum(['takeoff', 'manual']).optional().default('takeoff'),
   status: z
     .enum(['Planning', 'Approved', 'Ongoing', 'Completed', 'Cancelled'])
     .default('Planning'),
@@ -21,6 +22,15 @@ const ProjectSchema = z.object({
   description: z.string().optional(),
   haulingCostPerKm: z.coerce.number().min(0).default(0),
   distanceFromOffice: z.coerce.number().min(0).default(0),
+  manualPowConfig: z
+    .object({
+      laborLocation: z.string().optional(),
+      cmpdVersion: z.string().optional(),
+      district: z.string().optional(),
+      vatPercentage: z.number().optional(),
+      notes: z.string().optional(),
+    })
+    .optional(),
 });
 
 // GET /api/projects - List projects with filtering

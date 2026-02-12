@@ -83,6 +83,19 @@ export interface IProject extends Document {
   appropriation: number;
   contractId?: string;
   projectType?: 'takeoff' | 'boq' | 'hybrid' | string; // Enhanced to support both types
+  powMode?: 'takeoff' | 'manual';
+  manualPowMetadata?: {
+    lastUpdatedBy?: string;
+    lastUpdatedAt?: Date;
+    notes?: string;
+  } | null;
+  manualPowConfig?: {
+    laborLocation?: string;
+    cmpdVersion?: string;
+    district?: string;
+    vatPercentage?: number;
+    notes?: string;
+  } | null;
   status: 'Planning' | 'Approved' | 'Ongoing' | 'Completed' | 'Cancelled';
   startDate?: Date;
   endDate?: Date;
@@ -519,6 +532,19 @@ const ProjectSchema = new Schema<IProject>(
     projectType: {
       type: String,
       default: 'boq', // 'takeoff' | 'boq' | 'hybrid'
+    },
+    powMode: {
+      type: String,
+      enum: ['takeoff', 'manual'],
+      default: 'takeoff',
+    },
+    manualPowMetadata: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
+    manualPowConfig: {
+      type: Schema.Types.Mixed,
+      default: null,
     },
     status: {
       type: String,

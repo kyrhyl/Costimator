@@ -56,7 +56,7 @@ export async function POST(
     if (!body.boqSource) {
       console.error('[Cost Estimate] Missing boqSource');
       return NextResponse.json(
-        { error: 'boqSource is required (boqDatabase, projectBOQ, takeoffVersion, or calcRun)' },
+        { error: 'boqSource is required (boqDatabase, projectBOQ, takeoffVersion, calcRun, or manual)' },
         { status: 400 }
       );
     }
@@ -78,7 +78,37 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
+    if (body.boqSource === 'manual') {
+      console.log('[Cost Estimate] Configuring manual Program of Works');
+      project.powMode = 'manual';
+      project.manualPowConfig = {
+        laborLocation: body.location,
+        cmpdVersion: resolvedCmpdVersion,
+        district: resolvedDistrict,
+        vatPercentage: body.vatPercentage ?? 12,
+        notes: body.manualNotes || '',
+      };
+      project.manualPowMetadata = {
+        lastUpdatedAt: new Date(),
+        lastUpdatedBy: body.createdBy || 'manual-boq',
+        notes: body.manualNotes || undefined,
+      };
+      await project.save();
+
+      return NextResponse.json(
+        {
+          success: true,
+          manualMode: true,
+          projectId,
+          powMode: project.powMode,
+          manualPowConfig: project.manualPowConfig,
+          message: 'Manual Program of Works enabled. Continue in the workspace to add BOQ items.'
+        },
+        { status: 201 }
+      );
+    }
+
     let boqLines: any[] = [];
     let takeoffVersionId: mongoose.Types.ObjectId | null = null;
     
@@ -195,7 +225,7 @@ export async function POST(
     }
     else {
       return NextResponse.json(
-        { error: 'Invalid boqSource. Must be "projectBOQ", "takeoffVersion", or "calcRun"' },
+        { error: 'Invalid boqSource. Must be "projectBOQ", "takeoffVersion", "calcRun", or "boqDatabase"' },
         { status: 400 }
       );
     }

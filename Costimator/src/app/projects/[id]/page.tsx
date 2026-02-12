@@ -504,7 +504,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <ProjectDetailsCard project={project as any} />
+      <ProjectDetailsCard
+        projectName={project.projectName}
+        implementingOffice={project.implementingOffice}
+        location={project.projectLocation}
+        district={project.district}
+      />
 
       {/* Hauling Configuration */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
@@ -534,7 +539,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       {/* Quick Actions */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-100">
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Link
             href={`/takeoff/${id}`}
             className="block bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
@@ -551,6 +556,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <h3 className="font-semibold text-blue-600 mb-2">📋 Bill of Quantities</h3>
             <p className="text-sm text-gray-600">
               Manage BOQ items and view detailed cost breakdowns
+            </p>
+          </Link>
+          <Link
+            href={`/projects/${id}/program-of-works`}
+            className="block bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
+          >
+            <h3 className="font-semibold text-blue-600 mb-2">📊 Program of Works</h3>
+            <p className="text-sm text-gray-600">
+              Open the Program of Works workspace for manual or takeoff-driven entries
             </p>
           </Link>
           <div className="block bg-white p-4 rounded-lg shadow opacity-50">
@@ -831,10 +845,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             setShowCreateEstimateModal(false);
             setSelectedTakeoffVersionId(null);
           }}
-          onSuccess={(estimateId) => {
+          onSuccess={(result) => {
             setShowCreateEstimateModal(false);
             setSelectedTakeoffVersionId(null);
-            router.push(`/cost-estimates/${estimateId}`);
+            if (result?.manualMode) {
+              router.push(`/projects/${id}/program-of-works?mode=manual-setup`);
+            } else if (result?.estimateId) {
+              router.push(`/cost-estimates/${result.estimateId}`);
+            }
           }}
         />
       )}

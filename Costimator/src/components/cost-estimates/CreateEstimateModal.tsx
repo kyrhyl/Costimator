@@ -6,7 +6,7 @@ interface CreateEstimateModalProps {
   projectId: string;
   takeoffVersionId?: string; // Optional - if not provided, uses latest CalcRun
   onClose: () => void;
-  onSuccess: (estimateId: string) => void;
+  onSuccess: (result: { estimateId?: string | null; manualMode?: boolean }) => void;
 }
 
 interface LaborRate {
@@ -43,6 +43,7 @@ export default function CreateEstimateModal({
   const [loadingTakeoffVersions, setLoadingTakeoffVersions] = useState(true);
   const [boqSourceInfo, setBoqSourceInfo] = useState({ hasProjectBOQ: false, itemCount: 0 });
   const [loadingBoqInfo, setLoadingBoqInfo] = useState(true);
+  const [pendingEstimateId, setPendingEstimateId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -134,6 +135,7 @@ export default function CreateEstimateModal({
     setError('');
     setUnmappedLines([]);
     setMissingMaterialPrices([]);
+    setPendingEstimateId(null);
 
     try {
       const payload: any = {
@@ -162,8 +164,14 @@ export default function CreateEstimateModal({
         throw new Error(data.error || 'Failed to create estimate');
       }
 
+      if (data.manualMode) {
+        onSuccess({ manualMode: true });
+        return;
+      }
+
       const hasUnmappedLines = Array.isArray(data.unmappedLines) && data.unmappedLines.length > 0;
       const hasMissingPrices = Array.isArray(data.missingMaterialPrices) && data.missingMaterialPrices.length > 0;
+      const newEstimateId = (data.data && data.data._id) || data.estimateId || null;
 
       if (hasUnmappedLines) {
         setUnmappedLines(data.unmappedLines);
@@ -174,12 +182,22 @@ export default function CreateEstimateModal({
       }
 
       if (!hasUnmappedLines && !hasMissingPrices) {
-        onSuccess(data.estimateId);
+        onSuccess({ estimateId: newEstimateId });
+      } else {
+        setPendingEstimateId(newEstimateId);
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleContinueAnyway = () => {
+    if (pendingEstimateId) {
+      onSuccess({ estimateId: pendingEstimateId });
+    } else {
+      onSuccess({ estimateId: undefined });
     }
   };
 
@@ -203,7 +221,7 @@ export default function CreateEstimateModal({
               ))}
             </ul>
             <button
-              onClick={() => onSuccess('')}
+              onClick={handleContinueAnyway}
               className="mt-3 bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
             >
               Continue Anyway
@@ -223,7 +241,7 @@ export default function CreateEstimateModal({
               ))}
             </ul>
             <button
-              onClick={() => onSuccess('')}
+              onClick={handleContinueAnyway}
               className="mt-3 bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
             >
               Continue Anyway
@@ -264,12 +282,14 @@ export default function CreateEstimateModal({
                 </option>
                 <option value="takeoffVersion">Takeoff Version Snapshot</option>
                 <option value="calcRun">Latest Calculation Run (Legacy)</option>
+                <option value="manual">Manual BOQ Input</option>
               </select>
             )}
             <p className="text-xs text-gray-500 mt-1">
               {formData.boqSource === 'boqDatabase' && 'Uses persistent BOQ database from takeoff (recommended)'}
               {formData.boqSource === 'takeoffVersion' && 'Uses specific takeoff version snapshot'}
               {formData.boqSource === 'calcRun' && 'Uses latest calculation run (fallback)'}
+              {formData.boqSource === 'manual' && 'Set up manual Program of Works entries from DUPA templates'}
             </p>
           </div>
 

@@ -18,7 +18,7 @@ import CostEstimate from '@/models/CostEstimate';
 import EstimateRateItem from '@/models/EstimateRateItem';
 import Project from '@/models/Project';
 import DUPATemplate from '@/models/DUPATemplate';
-import MaterialPrice from '@/models/MaterialPrice';
+import MaterialPrice, { IMaterialPrice } from '@/models/MaterialPrice';
 import LaborRate from '@/models/LaborRate';
 import Equipment from '@/models/Equipment';
 import mongoose from 'mongoose';
@@ -179,7 +179,7 @@ export async function POST(
               ]
             })
               .sort({ effectiveDate: -1 })
-              .lean();
+              .lean() as IMaterialPrice | null;
 
             let priceSource: 'cmpd' | 'canvass' | 'missing' = 'missing';
             let requiresCanvass = false;
@@ -195,7 +195,7 @@ export async function POST(
                 priceSource: 'canvass'
               })
                 .sort({ effectiveDate: -1 })
-                .lean();
+                .lean() as IMaterialPrice | null;
 
               if (materialPrice) {
                 priceSource = 'canvass';

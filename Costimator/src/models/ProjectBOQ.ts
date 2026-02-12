@@ -40,6 +40,7 @@ export interface IProjectBOQ extends Document {
   // Template information (copied at creation)
   payItemNumber: string;
   payItemDescription: string;
+  part?: string;
   unitOfMeasurement: string;
   outputPerHour: number;
   category?: string;
@@ -118,6 +119,7 @@ const ProjectBOQSchema = new Schema<IProjectBOQ>(
     },
     payItemNumber: { type: String, required: true },
     payItemDescription: { type: String, required: true },
+    part: { type: String, default: '' },
     unitOfMeasurement: { type: String, required: true },
     outputPerHour: { type: Number, required: true },
     category: { type: String },

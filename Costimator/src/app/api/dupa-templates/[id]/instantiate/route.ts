@@ -140,11 +140,13 @@ export async function POST(
     let haulingCostPerCuM = 0;
     let projectDistrict: string | undefined = undefined;
     let projectCmpdVersion: string | undefined = undefined;
-    
+    let manualPowConfig: any = null;
+
     if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
       const project: any = await Project.findById(projectId).lean();
-      projectDistrict = project?.district;
-      projectCmpdVersion = project?.cmpdVersion;
+      manualPowConfig = project?.manualPowConfig || null;
+      projectDistrict = manualPowConfig?.district || project?.district;
+      projectCmpdVersion = manualPowConfig?.cmpdVersion || project?.cmpdVersion;
       console.log('Project fetched:', {
         name: project?.projectName,
         district: projectDistrict,
