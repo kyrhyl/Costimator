@@ -48,6 +48,40 @@ interface ItemizedPart {
   partPercent: number;
 }
 
+interface ComponentBreakdownItem {
+  itemNumber: string;
+  description: string;
+  asSubmitted: {
+    percent: number;
+    quantity: number;
+    unit: string;
+    material: number;
+    labor: number;
+    equipment: number;
+    totalDirectCost: number;
+    markupPercent: number;
+    markupValue: number;
+    vat: number;
+    totalCost: number;
+  };
+}
+
+interface ComponentBreakdownPart {
+  part: string;
+  partDescription: string;
+  division: string;
+  items: ComponentBreakdownItem[];
+  totals: {
+    material: number;
+    labor: number;
+    equipment: number;
+    totalDirectCost: number;
+    markupValue: number;
+    vat: number;
+    totalCost: number;
+  };
+}
+
 interface PowReportData {
   header: {
     implementingOffice: string;
@@ -92,6 +126,7 @@ interface PowReportData {
   estimatedComponentCost: number;
   worksItems: WorksItem[];
   itemizedParts: ItemizedPart[];
+  componentBreakdown: ComponentBreakdownPart[];
   breakdown: {
     labor: number;
     materials: number;
@@ -202,8 +237,45 @@ export default function ProgramOfWorksForm({ projectId }: ProgramOfWorksFormProp
       <style jsx global>{`
         @page {
           size: A4 landscape;
-          margin: 0;
+          margin: 5mm 0mm 5mm 0mm;
+          @top-left { content: none; }
+          @top-center { content: none; }
+          @top-right { content: none; }
+          @bottom-left { content: none; }
+          @bottom-center { content: none; }
+          @bottom-right { content: none; }
         }
+        
+        /* A4 Page Container for on-screen preview - OUTSIDE @media print */
+        .a4-page {
+          width: 297mm;
+          min-height: 210mm;
+          background: white;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+                      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          margin: 20px auto;
+          padding: 5mm 10mm 5mm 10mm;
+          box-sizing: border-box;
+          position: relative;
+          overflow: hidden;
+          page-break-before: always;
+          page-break-after: always;
+        }
+        
+        .a4-page:first-of-type {
+          page-break-before: auto;
+        }
+        
+        /* Page indicator - visible on screen only */
+        .a4-page::after {
+          content: "Page " attr(data-page);
+          position: absolute;
+          bottom: 5mm;
+          right: 10mm;
+          font-size: 8px;
+          color: #999;
+        }
+        
         @media print {
           * {
             -webkit-print-color-adjust: exact !important;
@@ -232,9 +304,21 @@ export default function ProgramOfWorksForm({ projectId }: ProgramOfWorksFormProp
             height: auto !important;
           }
           .print-break-inside { break-inside: avoid; }
-          .print-page-break { 
+          
+          /* Print-specific overrides for .a4-page */
+          .a4-page {
+            box-shadow: none;
+            margin: 0;
+            width: 100% !important;
+            min-height: auto;
             page-break-before: always;
-            padding-top: 10mm;
+            page-break-after: always;
+          }
+          .a4-page:first-of-type {
+            page-break-before: auto;
+          }
+          .a4-page::after {
+            display: none;
           }
           .itemized-table {
             border-collapse: collapse;
@@ -251,6 +335,8 @@ export default function ProgramOfWorksForm({ projectId }: ProgramOfWorksFormProp
           .itemized-table td {
             border: 1px solid #000 !important;
           }
+          
+
         }
       `}</style>
 
@@ -276,8 +362,9 @@ export default function ProgramOfWorksForm({ projectId }: ProgramOfWorksFormProp
           </div>
         </div>
             
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="print-container bg-white shadow-2xl border border-slate-300 p-4 mx-auto overflow-hidden">
+        <div className="flex flex-col items-center py-6">
+          {/* Page 1: Program of Works (13-10) */}
+          <div className="a4-page" data-page="1">
             <div className="grid grid-cols-[70px_1fr] gap-0 mb-2">
               <div className="flex items-center justify-center">
                 
@@ -537,10 +624,11 @@ export default function ProgramOfWorksForm({ projectId }: ProgramOfWorksFormProp
                 <div>{data.signatories.approvedBy.position || 'Position'}<br/>{data.signatories.approvedBy.section || 'Office'}</div>
               </div>
             </div>
+          </div>
 
-            {/* Itemized Breakdown Section */}
-            {data.itemizedParts && data.itemizedParts.length > 0 && (
-              <div className="print-page-break mt-8">
+          {/* Page 2: Itemized Breakdown (13-11) */}
+          {data.itemizedParts && data.itemizedParts.length > 0 && (
+            <div className="a4-page" data-page="2">
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-20">
                     <div className="w-16 h-16 bg-slate-100 flex items-center justify-center text-[0.5rem] text-center text-slate-500 rounded border border-slate-300">
@@ -554,9 +642,6 @@ export default function ProgramOfWorksForm({ projectId }: ProgramOfWorksFormProp
                     <div className="text-[0.6rem] font-bold uppercase tracking-widest">Republic of the Philippines</div>
                     <div className="text-[0.7rem] font-bold uppercase">Department of Public Works and Highways</div>
                     <div className="text-[0.9rem] font-bold mt-0.5 text-[#0038A8]">ITEMIZED BREAKDOWN</div>
-                  </div>
-                  <div className="w-32 text-right pt-1">
-                    <div className="text-[10px] font-semibold">DPWH-QMSP-13-11 Rev00</div>
                   </div>
                 </div>
 
@@ -748,7 +833,196 @@ export default function ProgramOfWorksForm({ projectId }: ProgramOfWorksFormProp
                 </table>
               </div>
             )}
-          </div>
+
+          {/* Page 3: Detailed Breakdown (13-13) */}
+          {data.componentBreakdown && data.componentBreakdown.length > 0 && (
+            <div className="a4-page" data-page="3">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-20">
+                  <div className="w-16 h-16 bg-slate-100 flex items-center justify-center text-[0.5rem] text-center text-slate-500 rounded border border-slate-300">
+                    DPWH<br/>Logo
+                  </div>
+                </div>
+                <div className="flex-1 text-center pt-2">
+                  <div className="flex justify-end">
+                    <div className="text-[0.55rem] font-semibold">DPWH-QMSP-13-13 Rev.00</div>
+                  </div>
+                  <div className="text-[0.6rem] font-normal">Republic of the Philippines</div>
+                  <div className="text-[0.7rem] font-bold uppercase tracking-wide">Department of Public Works and Highways</div>
+                    <div className="text-[0.9rem] font-bold uppercase tracking-[0.2em] mt-2 text-[#0038A8]">Detailed Breakdown of Component for Each Item</div>
+                  </div>
+                </div>
+
+                <div className="space-y-1 mb-4">
+                  <div className="flex items-baseline">
+                    <span className="text-[10px] font-semibold w-28">Implementing Office:</span>
+                    <span className="flex-1 border-b border-slate-900 text-[10px] px-1">{data.header.implementingOffice}</span>
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-[10px] font-semibold w-28">Address:</span>
+                    <span className="flex-1 border-b border-slate-900 text-[10px] px-1">{data.header.address}</span>
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-[10px] font-semibold w-28">Project Name:</span>
+                    <span className="flex-1 border-b border-slate-900 text-[10px] px-1">{data.header.projectName}</span>
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-[10px] font-semibold w-28">Project Location:</span>
+                    <span className="flex-1 border-b border-slate-900 text-[10px] px-1">{data.header.projectLocation}</span>
+                  </div>
+                </div>
+
+                <table className="itemized-table text-[8px] w-full">
+                  <colgroup>
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '6%' }} />
+                    <col style={{ width: '8%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-[#4a4a4a] text-white">
+                      <th rowSpan={2} className="px-1 py-2 text-left font-normal" style={{ border: '1px solid #000' }}>ITEM NO.</th>
+                      <th rowSpan={2} className="px-1 py-2 text-left font-normal" style={{ border: '1px solid #000' }}>DESCRIPTION</th>
+                      <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}></th>
+                      <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>%</th>
+                      <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>QUANTITY</th>
+                      <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>UNIT</th>
+                      <th colSpan={3} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>DIRECT COST</th>
+                      <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>TOTAL</th>
+                      <th colSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>TOTAL MARK-UP</th>
+                      <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>VAT</th>
+                      <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>TOTAL COST</th>
+                    </tr>
+                    <tr className="bg-[#4a4a4a] text-white">
+                      <th className="px-1 py-1 text-center font-normal" style={{ border: '1px solid #000' }}>MATERIAL</th>
+                      <th className="px-1 py-1 text-center font-normal" style={{ border: '1px solid #000' }}>LABOR</th>
+                      <th className="px-1 py-1 text-center font-normal" style={{ border: '1px solid #000' }}>EQUIPMENT</th>
+                      <th className="px-1 py-1 text-center font-normal" style={{ border: '1px solid #000' }}>%</th>
+                      <th className="px-1 py-1 text-center font-normal" style={{ border: '1px solid #000' }}>VALUE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      let currentDivision = '';
+                      const rows: JSX.Element[] = [];
+                      
+                      data.componentBreakdown.forEach((part) => {
+                        // Add division row if changed
+                        if (part.division && part.division !== currentDivision) {
+                          currentDivision = part.division;
+                          const divisionName = part.division === 'DIVISION I' ? 'General' : 
+                                              part.division === 'DIVISION II' ? 'Buildings' : 
+                                              part.division === 'DIVISION III' ? 'Water Supply and Sewerage' : 
+                                              part.division === 'DIVISION IV' ? 'Bridges' : 
+                                              part.division === 'DIVISION V' ? 'Flood Control' : '';
+                          rows.push(
+                            <tr key={`annexc-div-${currentDivision}`} className="bg-[#808080] font-semibold uppercase">
+                              <td className="px-1 py-1" style={{ border: '1px solid #000' }}>{part.division}</td>
+                              <td className="px-1 py-1" colSpan={13} style={{ border: '1px solid #000' }}>{divisionName}</td>
+                            </tr>
+                          );
+                        }
+                        
+                        // Add part header row
+                        rows.push(
+                          <tr key={`annexc-part-${part.part}`} className="bg-[#d3d3d3] font-semibold uppercase">
+                            <td className="px-1 py-1" style={{ border: '1px solid #000' }}>{part.part}</td>
+                            <td className="px-1 py-1" colSpan={13} style={{ border: '1px solid #000' }}>{part.partDescription}</td>
+                          </tr>
+                        );
+                        
+                        // Add items for this part
+                        part.items.forEach((item, itemIndex) => {
+                          // AS EVALUATED row (blank)
+                          rows.push(
+                            <tr key={`${part.part}-item-${itemIndex}-evaluated`}>
+                              <td className="px-1 py-[2px] text-center" rowSpan={2} style={{ border: '1px solid #000' }}>{item.itemNumber}</td>
+                              <td className="px-1 py-[2px]" rowSpan={2} style={{ border: '1px solid #000' }}>{item.description}</td>
+                              <td className="px-1 py-[2px] text-center text-[7px]" style={{ border: '1px solid #000' }}>AS EVALUATED</td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                              <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            </tr>
+                          );
+                          // AS SUBMITTED row (with data)
+                          rows.push(
+                            <tr key={`${part.part}-item-${itemIndex}-submitted`}>
+                              <td className="px-1 py-[2px] text-center text-[7px]" style={{ border: '1px solid #000' }}>AS SUBMITTED</td>
+                              <td className="px-1 py-[2px] text-right text-[7px]" style={{ border: '1px solid #000' }}>{item.asSubmitted.percent.toFixed(2)}%</td>
+                              <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatNumber(item.asSubmitted.quantity)}</td>
+                              <td className="px-1 py-[2px] text-center" style={{ border: '1px solid #000' }}>{item.asSubmitted.unit}</td>
+                              <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(item.asSubmitted.material)}</td>
+                              <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(item.asSubmitted.labor)}</td>
+                              <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(item.asSubmitted.equipment)}</td>
+                              <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(item.asSubmitted.totalDirectCost)}</td>
+                              <td className="px-1 py-[2px] text-center" style={{ border: '1px solid #000' }}>{item.asSubmitted.markupPercent.toFixed(0)}%</td>
+                              <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(item.asSubmitted.markupValue)}</td>
+                              <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(item.asSubmitted.vat)}</td>
+                              <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(item.asSubmitted.totalCost)}</td>
+                            </tr>
+                          );
+                        });
+                        
+                        // Add part total rows (AS EVALUATED - blank, AS SUBMITTED - with totals)
+                        rows.push(
+                          <tr key={`${part.part}-total-evaluated`} className="bg-[#d3d3d3] font-semibold">
+                            <td className="px-1 py-[2px]" colSpan={2} rowSpan={2} style={{ border: '1px solid #000' }}>TOTAL OF {part.part}</td>
+                            <td className="px-1 py-[2px] text-center text-[7px]" style={{ border: '1px solid #000' }}>AS EVALUATED</td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                          </tr>
+                        );
+                        rows.push(
+                          <tr key={`${part.part}-total-submitted`} className="bg-[#d3d3d3] font-semibold">
+                            <td className="px-1 py-[2px] text-center text-[7px]" style={{ border: '1px solid #000' }}>AS SUBMITTED</td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.material)}</td>
+                            <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.labor)}</td>
+                            <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.equipment)}</td>
+                            <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.totalDirectCost)}</td>
+                            <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+                            <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.markupValue)}</td>
+                            <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.vat)}</td>
+                            <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.totalCost)}</td>
+                          </tr>
+                        );
+                      });
+                      
+                      return rows;
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </>

@@ -122,18 +122,18 @@ export async function GET(
     }
     console.log('========================');
     
+    const totalDirectCost = boqItems.reduce((sum, item) => sum + (item.directCost || 0), 0);
     const partDescriptions = await getPartDescriptionsFromDB();
     const worksItems = groupItemsByPart(allItems, partDescriptions);
     const itemizedParts = groupItemsByPartDetailed(allItems, partDescriptions);
-    
+    const componentBreakdown = groupItemsByComponentBreakdown(allItems, partDescriptions, totalDirectCost);
+
     console.log('Works Items Grouped:', worksItems.length, 'parts found');
     worksItems.forEach((item: any, idx: number) => {
       console.log(`  Part ${idx + 1}:`, item.part, '-', item.items.length, 'items');
     });
     console.log('Itemized Parts:', itemizedParts.length, 'parts with detailed items');
     const expenditureBreakdown = calculateExpenditureBreakdown(allItems);
-
-    const totalDirectCost = boqItems.reduce((sum, item) => sum + (item.directCost || 0), 0);
     const totalProjectCost = totalDirectCost + (expenditureBreakdown.ocm || 0) + (expenditureBreakdown.vat || 0);
 
     const header = {
@@ -221,6 +221,7 @@ export async function GET(
         estimatedComponentCost,
         worksItems,
         itemizedParts,
+        componentBreakdown,
         breakdown: {
           ...expenditureBreakdown,
           eao,
@@ -457,6 +458,124 @@ function groupItemsByPartDetailed(boqItems: any[], partDescriptions: Record<stri
       })),
       partTotal: data.partTotal,
       partPercent: totalDirectCost > 0 ? (data.partTotal / totalDirectCost) * 100 : 0
+    }))
+    .sort((a, b) => {
+      const partOrder = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+      const aOrder = partOrder.indexOf(a.part.replace('PART ', ''));
+      const bOrder = partOrder.indexOf(b.part.replace('PART ', ''));
+      if (aOrder !== -1 && bOrder !== -1) return aOrder - bOrder;
+      return a.part.localeCompare(b.part);
+    });
+}
+
+interface ComponentBreakdownItem {
+  itemNumber: string;
+  description: string;
+  asSubmitted: {
+    percent: number;
+    quantity: number;
+    unit: string;
+    material: number;
+    labor: number;
+    equipment: number;
+    totalDirectCost: number;
+    markupPercent: number;
+    markupValue: number;
+    vat: number;
+    totalCost: number;
+  };
+}
+
+interface ComponentBreakdownPart {
+  part: string;
+  partDescription: string;
+  division: string;
+  items: ComponentBreakdownItem[];
+  totals: {
+    material: number;
+    labor: number;
+    equipment: number;
+    totalDirectCost: number;
+    markupValue: number;
+    vat: number;
+    totalCost: number;
+  };
+}
+
+function groupItemsByComponentBreakdown(
+  boqItems: any[],
+  partDescriptions: Record<string, string>,
+  totalDirectCostAll: number
+): ComponentBreakdownPart[] {
+  const partMap = new Map<string, { items: ComponentBreakdownItem[]; totals: ComponentBreakdownPart['totals'] }>();
+
+  boqItems.forEach((item) => {
+    let part: string;
+
+    if (item.part) {
+      part = normalizePart(item.part);
+    } else if (item.templateId && (item.templateId as any)?.part) {
+      part = normalizePart((item.templateId as any).part);
+    } else if (item.category) {
+      part = normalizePart(item.category);
+    } else {
+      part = 'PART C';
+    }
+
+    const partKey = part;
+
+    if (!partMap.has(partKey)) {
+      partMap.set(partKey, {
+        items: [],
+        totals: { material: 0, labor: 0, equipment: 0, totalDirectCost: 0, markupValue: 0, vat: 0, totalCost: 0 }
+      });
+    }
+
+    const partData = partMap.get(partKey)!;
+    const directCost = item.directCost || 0;
+    const material = item.materialCost || item.materialItems?.reduce((sum: number, mi: any) => sum + (mi.amount || 0), 0) || 0;
+    const labor = item.laborCost || item.laborItems?.reduce((sum: number, li: any) => sum + (li.amount || 0), 0) || 0;
+    const equipment = item.equipmentCost || item.equipmentItems?.reduce((sum: number, ei: any) => sum + (ei.amount || 0), 0) || 0;
+    const ocm = item.ocmCost || 0;
+    const vat = item.vatCost || 0;
+    const totalCost = item.totalAmount || (directCost + ocm + vat);
+    const markupPercent = directCost > 0 ? (ocm / directCost) * 100 : 0;
+
+    const componentItem: ComponentBreakdownItem = {
+      itemNumber: item.payItemNumber || '',
+      description: item.payItemDescription || '',
+      asSubmitted: {
+        percent: totalDirectCostAll > 0 ? (directCost / totalDirectCostAll) * 100 : 0,
+        quantity: item.quantity || 0,
+        unit: item.unitOfMeasurement || item.unit || '',
+        material,
+        labor,
+        equipment,
+        totalDirectCost: directCost,
+        markupPercent,
+        markupValue: ocm,
+        vat,
+        totalCost
+      }
+    };
+
+    partData.items.push(componentItem);
+    partData.totals.material += material;
+    partData.totals.labor += labor;
+    partData.totals.equipment += equipment;
+    partData.totals.totalDirectCost += directCost;
+    partData.totals.markupValue += ocm;
+    partData.totals.vat += vat;
+    partData.totals.totalCost += totalCost;
+  });
+
+  return Array.from(partMap.entries())
+    .map(([part, data]) => ({
+      part,
+      partDescription: partDescriptions[part] || 'Other Works',
+      division: getDivisionForPart(part),
+      items: data.items,
+      totals: data.totals
     }))
     .sort((a, b) => {
       const partOrder = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
