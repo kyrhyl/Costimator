@@ -1,0 +1,116 @@
+@page {
+  size: A4 landscape;
+  margin: 5mm 0mm 5mm 0mm;
+  @top-left { content: none; }
+  @top-center { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-center { content: none; }
+  @bottom-right { content: none; }
+}
+
+.noPrint {
+  display: block;
+}
+
+:global(.a4-page) {
+  width: 297mm;
+  min-height: 210mm;
+  background: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+              0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin: 20px auto;
+  padding: 5mm 10mm 5mm 10mm;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  page-break-before: always;
+  page-break-after: always;
+}
+
+:global(.a4-page:first-of-type) {
+  page-break-before: auto;
+}
+
+:global(.a4-page::after) {
+  content: "Page " attr(data-page);
+  position: absolute;
+  bottom: 5mm;
+  right: 10mm;
+  font-size: 8px;
+  color: #999;
+}
+
+@media print {
+  :global(*) {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  .noPrint,
+  :global([data-print-hide="true"]) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  :global(body),
+  :global(.min-h-screen),
+  :global(.bg-gray-50) {
+    background-color: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  :global(.print-container) {
+    box-shadow: none !important;
+    border: none !important;
+    width: 297mm !important;
+    margin: 0 !important;
+    padding: 5mm !important;
+    max-width: none !important;
+    height: auto !important;
+  }
+
+  :global(.print-break-inside) {
+    break-inside: avoid;
+  }
+
+  :global(.a4-page) {
+    box-shadow: none;
+    margin: 0;
+    width: 100% !important;
+    min-height: auto;
+    page-break-before: always;
+    page-break-after: always;
+  }
+
+  :global(.a4-page:first-of-type) {
+    page-break-before: auto;
+  }
+
+  :global(.a4-page::after) {
+    display: none;
+  }
+
+  :global(.itemized-table) {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  :global(.itemized-table thead) {
+    display: table-header-group;
+  }
+
+  :global(.itemized-table tbody tr) {
+    break-inside: avoid;
+  }
+
+  :global(.itemized-table th),
+  :global(.itemized-table td) {
+    border: 1px solid #000 !important;
+  }
+}
