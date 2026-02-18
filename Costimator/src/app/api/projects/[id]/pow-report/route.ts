@@ -7,6 +7,7 @@ import CostEstimate from '@/models/CostEstimate';
 import PayItem from '@/models/PayItem';
 import DUPATemplate from '@/models/DUPATemplate';
 import mongoose from 'mongoose';
+import { getDivisionForPart, normalizePart, PART_DESCRIPTIONS, PART_ORDER } from '@/lib/utils/dpwh-constants';
 
 interface BOQLineItem {
   payItemNumber: string;
@@ -254,20 +255,7 @@ export async function GET(
 }
 
 async function getPartDescriptionsFromDB(): Promise<Record<string, string>> {
-  return {
-    'PART A': 'GENERAL',
-    'PART B': 'OTHER GENERAL REQUIREMENTS',
-    'PART C': 'EARTHWORK',
-    'PART D': 'REINFORCED CONCRETE / BUILDINGS',
-    'PART E': 'FINISHINGS AND OTHER CIVIL WORKS',
-    'PART F': 'ELECTRICAL',
-    'PART G': 'MECHANICAL',
-    'PART H': 'Water Supply',
-    'PART I': 'Pipe Lines (Water Distribution)',
-    'PART J': 'Sewerage',
-    'PART K': 'Bridge',
-    'PART L': 'FLOOD AND RIVER CONTROL AND DRAINAGE'
-  };
+  return { ...PART_DESCRIPTIONS, 'PART D': 'REINFORCED CONCRETE / BUILDINGS' };
 }
 
 function groupItemsByPart(boqItems: any[], partDescriptions: Record<string, string>): Array<{
@@ -338,38 +326,11 @@ function groupItemsByPart(boqItems: any[], partDescriptions: Record<string, stri
       percent: totalDirectCost > 0 ? (data.asSubmitted / totalDirectCost) * 100 : 0
     }))
     .sort((a, b) => {
-      const partOrder = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-      const aOrder = partOrder.indexOf(a.part.replace('PART ', ''));
-      const bOrder = partOrder.indexOf(b.part.replace('PART ', ''));
+      const aOrder = PART_ORDER.indexOf(a.part.replace('PART ', ''));
+      const bOrder = PART_ORDER.indexOf(b.part.replace('PART ', ''));
       if (aOrder !== -1 && bOrder !== -1) return aOrder - bOrder;
       return a.part.localeCompare(b.part);
     });
-}
-
-function getDivisionForPart(part: string): string {
-  const divisionMap: Record<string, string> = {
-    'PART A': 'DIVISION I',
-    'PART B': 'DIVISION I',
-    'PART C': 'DIVISION I',
-    'PART D': 'DIVISION I',
-    'PART E': 'DIVISION II',
-    'PART F': 'DIVISION II',
-    'PART G': 'DIVISION II',
-    'PART H': 'DIVISION III',
-    'PART I': 'DIVISION III',
-    'PART J': 'DIVISION III',
-    'PART K': 'DIVISION IV',
-    'PART L': 'DIVISION V'
-  };
-  return divisionMap[part] || '';
-}
-
-function normalizePart(part?: string): string {
-  const raw = (part || 'C').toString().trim().toUpperCase();
-  if (raw.startsWith('PART ')) return raw;
-  if (raw.startsWith('PART') && raw.length === 5) return `PART ${raw.slice(-1)}`;
-  if (raw.length === 1) return `PART ${raw}`;
-  return `PART ${raw}`;
 }
 
 interface DetailedLineItem {
@@ -460,9 +421,8 @@ function groupItemsByPartDetailed(boqItems: any[], partDescriptions: Record<stri
       partPercent: totalDirectCost > 0 ? (data.partTotal / totalDirectCost) * 100 : 0
     }))
     .sort((a, b) => {
-      const partOrder = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-      const aOrder = partOrder.indexOf(a.part.replace('PART ', ''));
-      const bOrder = partOrder.indexOf(b.part.replace('PART ', ''));
+      const aOrder = PART_ORDER.indexOf(a.part.replace('PART ', ''));
+      const bOrder = PART_ORDER.indexOf(b.part.replace('PART ', ''));
       if (aOrder !== -1 && bOrder !== -1) return aOrder - bOrder;
       return a.part.localeCompare(b.part);
     });
@@ -578,9 +538,8 @@ function groupItemsByComponentBreakdown(
       totals: data.totals
     }))
     .sort((a, b) => {
-      const partOrder = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-      const aOrder = partOrder.indexOf(a.part.replace('PART ', ''));
-      const bOrder = partOrder.indexOf(b.part.replace('PART ', ''));
+      const aOrder = PART_ORDER.indexOf(a.part.replace('PART ', ''));
+      const bOrder = PART_ORDER.indexOf(b.part.replace('PART ', ''));
       if (aOrder !== -1 && bOrder !== -1) return aOrder - bOrder;
       return a.part.localeCompare(b.part);
     });

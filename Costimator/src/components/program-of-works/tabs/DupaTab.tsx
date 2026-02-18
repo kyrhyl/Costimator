@@ -9,8 +9,15 @@ interface DupaTabProps {
 }
 
 export function DupaTab({ data, formatCurrency, formatNumber }: DupaTabProps) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const selected = useMemo(() => data.items[selectedIndex] || data.items[0], [data.items, selectedIndex]);
+  const getItemKey = (item: DupaReportData['items'][number]) =>
+    `${item.part}-${item.payItemNumber}-${item.payItemDescription}`;
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  const selected = useMemo(() => {
+    if (!data.items.length) return undefined;
+    if (!selectedKey) return data.items[0];
+    return data.items.find((item) => getItemKey(item) === selectedKey) || data.items[0];
+  }, [data.items, selectedKey]);
 
   if (!selected) {
     return (
@@ -26,12 +33,12 @@ export function DupaTab({ data, formatCurrency, formatNumber }: DupaTabProps) {
         <label htmlFor="dupa-item" className="text-sm font-semibold text-gray-700">Preview Pay Item</label>
         <select
           id="dupa-item"
-          value={selectedIndex}
-          onChange={(e) => setSelectedIndex(Number(e.target.value))}
+          value={selected ? getItemKey(selected) : ''}
+          onChange={(e) => setSelectedKey(e.target.value)}
           className="mt-2 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
         >
-          {data.items.map((item, index) => (
-            <option key={`${item.part}-${item.payItemNumber}-${index}`} value={index}>
+          {data.items.map((item) => (
+            <option key={getItemKey(item)} value={getItemKey(item)}>
               {item.part} - {item.payItemNumber} - {item.payItemDescription}
             </option>
           ))}

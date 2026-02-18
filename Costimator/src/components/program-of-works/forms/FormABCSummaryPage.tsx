@@ -1,4 +1,6 @@
 import type { AbcReportData } from '@/types/abc';
+import type { JSX } from 'react';
+import { useMemo } from 'react';
 import { A4PageWrapper } from '../common/A4PageWrapper';
 import { DpwhFormHeader } from '../common/DpwhFormHeader';
 import { SignatoriesSection } from '../common/SignatoriesSection';
@@ -9,7 +11,52 @@ interface FormABCSummaryPageProps {
 }
 
 export function FormABCSummaryPage({ data, formatCurrency }: FormABCSummaryPageProps) {
-  let currentDivision = '';
+  const summaryRows = useMemo(() => {
+    let currentDivision = '';
+
+    return data.parts.flatMap((part) => {
+      const rows: JSX.Element[] = [];
+
+      if (part.division && part.division !== currentDivision) {
+        currentDivision = part.division;
+        rows.push(
+          <tr key={`abc-div-${part.division}`} className="bg-[#a6a6a6] font-semibold uppercase">
+            <td className="px-1 py-1" style={{ border: '1px solid #000' }}>{part.division}</td>
+            <td className="px-1 py-1" colSpan={8} style={{ border: '1px solid #000' }}></td>
+          </tr>,
+        );
+      }
+
+      rows.push(
+        <tr key={`abc-part-${part.part}`}>
+          <td rowSpan={2} className="px-1 py-[2px] font-semibold align-middle" style={{ border: '1px solid #000' }}>{part.part}</td>
+          <td rowSpan={2} className="px-1 py-[2px] font-semibold align-middle" style={{ border: '1px solid #000' }}>{part.partDescription}</td>
+          <td className="px-1 py-[2px] text-center text-[0.55rem]" style={{ border: '1px solid #000' }}>AS EVALUATED</td>
+          <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+          <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+          <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+          <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+          <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+          <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
+        </tr>,
+      );
+
+      const percent = part.totals.directCost > 0 ? (part.totals.markupValue / part.totals.directCost) * 100 : 0;
+      rows.push(
+        <tr key={`abc-part-sub-${part.part}`}>
+          <td className="px-1 py-[2px] text-center text-[0.55rem]" style={{ border: '1px solid #000' }}>AS SUBMITTED</td>
+          <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.directCost)}</td>
+          <td className="px-1 py-[2px] text-center" style={{ border: '1px solid #000' }}>{percent.toFixed(0)}%</td>
+          <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.markupValue)}</td>
+          <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.vat)}</td>
+          <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.totalIndirectCost)}</td>
+          <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.totalCost)}</td>
+        </tr>,
+      );
+
+      return rows;
+    });
+  }, [data.parts, formatCurrency]);
 
   return (
     <A4PageWrapper pageNumber="ABC-1">
@@ -43,48 +90,7 @@ export function FormABCSummaryPage({ data, formatCurrency }: FormABCSummaryPageP
           </tr>
         </thead>
         <tbody>
-          {data.parts.map((part) => {
-            const rows = [];
-
-            if (part.division && part.division !== currentDivision) {
-              currentDivision = part.division;
-              rows.push(
-                <tr key={`abc-div-${part.division}`} className="bg-[#a6a6a6] font-semibold uppercase">
-                  <td className="px-1 py-1" style={{ border: '1px solid #000' }}>{part.division}</td>
-                  <td className="px-1 py-1" colSpan={8} style={{ border: '1px solid #000' }}></td>
-                </tr>,
-              );
-            }
-
-            rows.push(
-              <tr key={`abc-part-${part.part}`}>
-                <td rowSpan={2} className="px-1 py-[2px] font-semibold align-middle" style={{ border: '1px solid #000' }}>{part.part}</td>
-                <td rowSpan={2} className="px-1 py-[2px] font-semibold align-middle" style={{ border: '1px solid #000' }}>{part.partDescription}</td>
-                <td className="px-1 py-[2px] text-center text-[0.55rem]" style={{ border: '1px solid #000' }}>AS EVALUATED</td>
-                <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
-                <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
-                <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
-                <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
-                <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
-                <td className="px-1 py-[2px]" style={{ border: '1px solid #000' }}></td>
-              </tr>,
-            );
-
-            const percent = part.totals.directCost > 0 ? (part.totals.markupValue / part.totals.directCost) * 100 : 0;
-            rows.push(
-              <tr key={`abc-part-sub-${part.part}`}>
-                <td className="px-1 py-[2px] text-center text-[0.55rem]" style={{ border: '1px solid #000' }}>AS SUBMITTED</td>
-                <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.directCost)}</td>
-                <td className="px-1 py-[2px] text-center" style={{ border: '1px solid #000' }}>{percent.toFixed(0)}%</td>
-                <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.markupValue)}</td>
-                <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.vat)}</td>
-                <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.totalIndirectCost)}</td>
-                <td className="px-1 py-[2px] text-right" style={{ border: '1px solid #000' }}>{formatCurrency(part.totals.totalCost)}</td>
-              </tr>,
-            );
-
-            return rows;
-          })}
+          {summaryRows}
 
           <tr className="bg-[#bfbfbf] font-semibold uppercase">
             <td className="px-1 py-1 text-center align-middle" style={{ border: '1px solid #000' }} colSpan={2} rowSpan={2}>GRAND TOTAL</td>

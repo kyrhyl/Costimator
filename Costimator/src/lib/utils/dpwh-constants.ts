@@ -55,6 +55,18 @@ export const DIVISION_NAMES: Record<string, string> = {
 
 export const PART_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
+export const PART_PREFIX_MAP: Record<string, string> = {
+  '1': 'PART A',
+  '2': 'PART B',
+  '3': 'PART C',
+  '4': 'PART D',
+  '5': 'PART E',
+  '6': 'PART F',
+  '7': 'PART G',
+  '8': 'PART H',
+  '9': 'PART I',
+};
+
 // ============================================================================
 // Form Constants
 // ============================================================================
@@ -111,4 +123,16 @@ export function normalizePart(part?: string): string {
   if (raw.startsWith('PART') && raw.length === 5) return `PART ${raw.slice(-1)}`;
   if (raw.length === 1) return `PART ${raw}`;
   return `PART ${raw}`;
+}
+
+export function derivePartLabel(part?: string, payItemNumber?: string): string {
+  if (part && part.trim()) {
+    return normalizePart(part);
+  }
+  if (!payItemNumber) {
+    return 'PART C';
+  }
+  const digits = payItemNumber.replace(/[^0-9]/g, '');
+  const firstDigit = digits.charAt(0);
+  return normalizePart(PART_PREFIX_MAP[firstDigit] || 'PART C');
 }

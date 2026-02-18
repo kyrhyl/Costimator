@@ -231,7 +231,7 @@ export default function ProgramOfWorksHauling({ projectId, project }: ProgramOfW
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Route Breakdown</h3>
         <div className="space-y-4">
           {routeSegments.map((segment, index) => (
-            <div key={`${segment.terrain}-${index}`} className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+            <div key={segment.terrain} className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">{segment.terrain}</label>
                 <input

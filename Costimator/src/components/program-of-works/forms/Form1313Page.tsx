@@ -1,4 +1,5 @@
 import type { ComponentBreakdownPart, PowHeader } from '@/types/program-of-works';
+import { useMemo } from 'react';
 import { A4PageWrapper } from '../common/A4PageWrapper';
 import { DpwhFormHeader } from '../common/DpwhFormHeader';
 import { ProjectInfoSection } from '../common/ProjectInfoSection';
@@ -12,6 +13,11 @@ interface Form1313PageProps {
 }
 
 export function Form1313Page({ header, componentBreakdown, formatCurrency, formatNumber }: Form1313PageProps) {
+  const componentRows = useMemo(
+    () => buildComponentBreakdownRows(componentBreakdown, formatCurrency, formatNumber),
+    [componentBreakdown, formatCurrency, formatNumber],
+  );
+
   return (
     <A4PageWrapper pageNumber={3}>
       <DpwhFormHeader formNumber="13-13" compact />
@@ -56,7 +62,7 @@ export function Form1313Page({ header, componentBreakdown, formatCurrency, forma
             <th className="px-1 py-1 text-center font-normal" style={{ border: '1px solid #000' }}>VALUE</th>
           </tr>
         </thead>
-        <tbody>{buildComponentBreakdownRows(componentBreakdown, formatCurrency, formatNumber)}</tbody>
+        <tbody>{componentRows}</tbody>
       </table>
     </A4PageWrapper>
   );

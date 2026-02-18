@@ -1,4 +1,5 @@
 import type { PowReportData } from '@/types/program-of-works';
+import { useMemo } from 'react';
 import { A4PageWrapper } from '../common/A4PageWrapper';
 import { DpwhFormHeader } from '../common/DpwhFormHeader';
 import { ProjectInfoSection } from '../common/ProjectInfoSection';
@@ -12,6 +13,8 @@ interface Form1310PageProps {
 }
 
 export function Form1310Page({ data, totalDirectCost, formatCurrency }: Form1310PageProps) {
+  const worksRows = useMemo(() => buildWorksRows(data.worksItems, formatCurrency), [data.worksItems, formatCurrency]);
+
   return (
     <A4PageWrapper pageNumber={1}>
       <DpwhFormHeader formNumber="13-10" />
@@ -121,7 +124,7 @@ export function Form1310Page({ data, totalDirectCost, formatCurrency }: Form1310
             </tr>
           </thead>
           <tbody>
-            {buildWorksRows(data.worksItems, formatCurrency)}
+            {worksRows}
             <tr className="font-bold">
               <td className="border border-black px-1 py-0 text-right text-[0.55rem]" colSpan={3}>TOTAL</td>
               <td className="border border-black px-1 py-0 text-[0.55rem]">100%</td>

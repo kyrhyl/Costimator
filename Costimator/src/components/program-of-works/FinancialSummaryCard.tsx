@@ -84,7 +84,7 @@ export default function FinancialSummaryCard({
                 dataKey="value"
               >
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                  <Cell key={`cell-${entry.name}`} fill={COLORS[index]} />
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />

@@ -1,4 +1,5 @@
 import type { PowHeader, ItemizedPart } from '@/types/program-of-works';
+import { useMemo } from 'react';
 import { A4PageWrapper } from '../common/A4PageWrapper';
 import { DpwhFormHeader } from '../common/DpwhFormHeader';
 import { ProjectInfoSection } from '../common/ProjectInfoSection';
@@ -12,6 +13,11 @@ interface Form1311PageProps {
 }
 
 export function Form1311Page({ header, itemizedParts, formatCurrency, formatNumber }: Form1311PageProps) {
+  const itemizedRows = useMemo(
+    () => buildItemizedRows(itemizedParts, formatCurrency, formatNumber),
+    [itemizedParts, formatCurrency, formatNumber],
+  );
+
   return (
     <A4PageWrapper pageNumber={2}>
       <DpwhFormHeader formNumber="13-11" compact />
@@ -54,7 +60,7 @@ export function Form1311Page({ header, itemizedParts, formatCurrency, formatNumb
             <th className="px-1 py-1 text-center font-normal" style={{ border: '1px solid #000' }}>AS EVALUATED</th>
           </tr>
         </thead>
-        <tbody>{buildItemizedRows(itemizedParts, formatCurrency, formatNumber)}</tbody>
+        <tbody>{itemizedRows}</tbody>
       </table>
     </A4PageWrapper>
   );

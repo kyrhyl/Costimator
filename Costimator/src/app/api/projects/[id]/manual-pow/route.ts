@@ -6,39 +6,7 @@ import ProjectBOQ, { IProjectBOQ } from '@/models/ProjectBOQ';
 import CostEstimate from '@/models/CostEstimate';
 import { getSessionUser, hasRequiredRole } from '@/lib/auth/session';
 import { PROJECT_WRITE_ROLES } from '@/lib/auth/roles';
-
-const normalizePart = (part?: string) => {
-  const raw = (part || 'C').toString().trim().toUpperCase();
-  if (raw.startsWith('PART ')) return raw;
-  if (raw.startsWith('PART') && raw.length === 5) {
-    return `PART ${raw.slice(-1)}`;
-  }
-  if (raw.length === 1) return `PART ${raw}`;
-  return `PART ${raw}`;
-};
-
-const derivePartLabel = (part?: string, payItemNumber?: string) => {
-  if (part && part.trim()) {
-    return normalizePart(part);
-  }
-  if (!payItemNumber) {
-    return 'PART C';
-  }
-  const digits = payItemNumber.replace(/[^0-9]/g, '');
-  const firstDigit = digits.charAt(0);
-  const PART_PREFIX_MAP: Record<string, string> = {
-    '1': 'PART A',
-    '2': 'PART B',
-    '3': 'PART C',
-    '4': 'PART D',
-    '5': 'PART E',
-    '6': 'PART F',
-    '7': 'PART G',
-    '8': 'PART H',
-    '9': 'PART I',
-  };
-  return normalizePart(PART_PREFIX_MAP[firstDigit] || 'PART C');
-};
+import { derivePartLabel } from '@/lib/utils/dpwh-constants';
 
 const buildManualEstimatePayload = (items: IProjectBOQ[]) => {
   const estimateLines = items.map((item) => {

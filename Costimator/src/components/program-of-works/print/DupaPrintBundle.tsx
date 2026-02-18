@@ -8,11 +8,14 @@ interface DupaPrintBundleProps {
 }
 
 export function DupaPrintBundle({ data, formatCurrency, formatNumber }: DupaPrintBundleProps) {
+  const getItemKey = (item: DupaReportData['items'][number]) =>
+    `${item.part}-${item.payItemNumber}-${item.payItemDescription}`;
+
   return (
     <>
       {data.items.map((item, index) => (
         <FormDUPAPage
-          key={`${item.part}-${item.payItemNumber}-${index}`}
+          key={getItemKey(item)}
           report={data}
           item={item}
           pageNumber={`DUPA-${index + 1}`}

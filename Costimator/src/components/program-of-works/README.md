@@ -1,238 +1,104 @@
-# Program of Works Workspace
+# Program of Works Module
 
-A professional DPWH-styled workspace for displaying program of works, budget breakdowns, and approval workflows based on the reference design (Screen 3).
+This module renders the canonical DPWH prescribed forms packet for a project:
 
-## Features
+- Form 13-10/13-11/13-13 (POW)
+- Form 13-14/13-15 (ABC)
+- Form 13-16 (DUPA)
 
-- **Project Details Card**: Displays project information, location, duration, and dates
-- **Financial Summary Card**: Shows allotted amount with interactive donut chart breakdown
-- **Description of Works Table**: Parts A-E summary with "As Submitted" vs "As Evaluated" columns and variance indicators
-- **Equipment Requirements**: Visual display of required equipment with quantity
-- **Breakdown of Expenditures**: Detailed cost breakdown (Labor, Materials, Equipment, OCM, Profit, VAT)
+It is used by the active route `src/app/projects/[id]/pow-report/page.tsx`.
 
-## Installation
+## Active Architecture
 
-The components are already installed in `src/components/program-of-works/`. Make sure you have:
+Entry flow:
 
-1. **Recharts** installed for charts:
-   ```bash
-   npm install recharts
-   ```
+1. `src/app/projects/[id]/pow-report/page.tsx`
+2. `src/components/program-of-works/ProgramOfWorksForm.tsx`
+3. `src/components/program-of-works/PrescribedFormsWorkspace.tsx`
 
-2. **DPWH color scheme** added to `tailwind.config.ts` (already done)
+Within `PrescribedFormsWorkspace`:
 
-## Usage
+- Data is loaded via `hooks/usePrescribedFormsData.ts`.
+- POW/ABC/DUPA screen tabs render via `tabs/PowTab.tsx`, `tabs/AbcTab.tsx`, `tabs/DupaTab.tsx`.
+- Print bundles render via `print/PowPrintBundle.tsx`, `print/AbcPrintBundle.tsx`, `print/DupaPrintBundle.tsx`.
 
-### Complete Workspace (Recommended)
+## Data Layer
 
-```tsx
-import { ProgramOfWorksWorkspace } from '@/components/program-of-works';
-import type { WorksPart, Equipment, ExpenditureBreakdown } from '@/components/program-of-works';
+Unified data loading lives in:
 
-export default function MyPage() {
-  return (
-    <ProgramOfWorksWorkspace
-      // Project Info
-      projectName="Your Project Name"
-      implementingOffice="DPWH District Office"
-      location="City, Province"
-      district="District Engineering Office"
-      fundSource="GAA 2026"
-      workableDays={180}
-      unworkableDays={45}
-      totalDuration={225}
-      startDate="2026-02-01"
-      endDate="2026-09-15"
-      
-      // Financial
-      allottedAmount={50000000.00}
-      
-      // Works Parts (A-E)
-      worksParts={[
-        {
-          part: 'PART A',
-          description: 'Facilities for the Engineer',
-          quantity: 1,
-          unit: 'LOT',
-          asSubmitted: 1250000.00,
-          asEvaluated: 1200000.00,
-        },
-        // ... more parts
-      ]}
-      
-      // Equipment
-      equipment={[
-        {
-          id: '1',
-          name: 'Dump Truck 6-Wheeler',
-          quantity: 2,
-          unit: 'Units',
-        },
-        // ... more equipment
-      ]}
-      
-      // Expenditure Breakdown
-      expenditureBreakdown={{
-        laborCost: 12500000.00,
-        materialCost: 18200000.00,
-        equipmentCost: 8780000.00,
-        ocmCost: 4250000.00,
-        profitMargin: 1750000.00,
-        vat: 5462400.00,
-        totalEstimatedCost: 50942400.00,
-      }}
-      
-      // Event Handlers
-      onPartClick={(part) => console.log('Clicked:', part)}
-      onAddEquipment={() => console.log('Add equipment')}
-      onSaveChanges={async () => {
-        // Save to API
-      }}
-    />
-  );
-}
-```
+- `src/components/program-of-works/hooks/usePrescribedFormsData.ts`
+- `src/components/program-of-works/hooks/fetchReportData.ts`
 
-### Individual Components
+Current API endpoints consumed:
 
-You can also use individual components for custom layouts:
+- `/api/projects/:id/pow-report`
+- `/api/projects/:id/abc-report`
+- `/api/projects/:id/dupa-report`
 
-```tsx
-import { 
-  ProjectDetailsCard,
-  FinancialSummaryCard,
-  DescriptionOfWorksTable,
-  EquipmentRequirements,
-  BreakdownOfExpenditures,
-  DigitalSignOffs 
-} from '@/components/program-of-works';
+The hook exposes explicit per-form and aggregate states:
 
-// Use components individually in your custom layout
-<div className="grid grid-cols-2 gap-6">
-  <ProjectDetailsCard {...props} />
-  <FinancialSummaryCard {...props} />
-</div>
-```
+- `data.pow | data.abc | data.dupa`
+- `loading.pow | loading.abc | loading.dupa | loading.any`
+- `error.pow | error.abc | error.dupa | error.any`
+- `refetch()`
 
-## Component Props
+## Shared Types and Constants
 
-### ProgramOfWorksWorkspace
+Use shared definitions instead of duplicating mappings or report types:
 
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `projectName` | `string` | Yes | Project name |
-| `implementingOffice` | `string` | Yes | DPWH office name |
-| `location` | `string` | Yes | Project location |
-| `district` | `string` | No | District office |
-| `fundSource` | `string` | No | Funding source |
-| `workableDays` | `number` | No | Number of workable days |
-| `unworkableDays` | `number` | No | Number of unworkable days |
-| `totalDuration` | `number` | No | Total project duration |
-| `startDate` | `string` | No | Start date (ISO format) |
-| `endDate` | `string` | No | End date (ISO format) |
-| `allottedAmount` | `number` | Yes | Total allotted budget |
-| `budgetBreakdown` | `object` | No | Direct/indirect/VAT breakdown |
-| `worksParts` | `WorksPart[]` | Yes | Array of BOQ parts (A-E) |
-| `equipment` | `Equipment[]` | Yes | Required equipment list |
-| `expenditureBreakdown` | `ExpenditureBreakdown` | Yes | Detailed cost breakdown |
-| `onPartClick` | `function` | No | Callback when part is clicked |
-| `onAddEquipment` | `function` | No | Callback to add equipment |
-| `onEditEquipment` | `function` | No | Callback to edit equipment |
-| `onRemoveEquipment` | `function` | No | Callback to remove equipment |
-| `onExportPDF` | `function` | No | Callback to export PDF |
-| `onSaveChanges` | `function` | No | Callback to save changes |
+- POW types: `src/types/program-of-works.ts`
+- ABC types: `src/types/abc.ts`
+- DUPA types: `src/types/dupa.ts`
+- DPWH part/division/form mappings: `src/lib/utils/dpwh-constants.ts`
 
-### Type Definitions
+## How to Add a New Prescribed Form
 
-```typescript
-type WorksPart = {
-  part: string;              // e.g., "PART A"
-  description: string;       // Part description
-  quantity?: number;         // Quantity (optional)
-  unit?: string;            // Unit of measurement
-  asSubmitted: number;      // Submitted cost
-  asEvaluated: number;      // Evaluated cost
-};
+Use this sequence to add a new form safely.
 
-type Equipment = {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  icon?: string;            // Emoji or icon (optional)
-};
+1. Add form types in `src/types` (or extend existing report types).
+2. Add fetch wiring in `usePrescribedFormsData.ts` using `fetchReportData.ts`.
+3. Create tab UI in `src/components/program-of-works/tabs/`.
+4. Create print bundle in `src/components/program-of-works/print/` and form page(s) in `forms/`.
+5. Register the tab in `PrescribedFormsWorkspace.tsx` and render screen + print outputs.
+6. Keep loading/error behavior aligned with existing `loading.any` and `error.any` handling.
 
-type ExpenditureBreakdown = {
-  laborCost: number;
-  materialCost: number;
-  equipmentCost: number;
-  ocmCost?: number;
-  profitMargin?: number;
-  vat?: number;
-  totalEstimatedCost: number;
-};
+Notes:
 
-```
+- Preserve print structure and report values.
+- Keep API payload contracts backward compatible unless coordinated.
 
-## Example
+## Manual POW Area
 
-See `src/app/program-of-works-example/page.tsx` for a complete working example with sample data.
+Manual POW management is implemented in:
 
-To view the example:
-1. Start your dev server: `npm run dev`
-2. Navigate to: `http://localhost:3000/program-of-works-example`
+- `src/components/program-of-works/ManualPowManager.tsx`
+- `src/components/program-of-works/manual-pow/*`
 
-## Styling
+This area is separate from prescribed report rendering and handles manual BOQ staging/version flows.
 
-The components use the DPWH blue color scheme defined in `tailwind.config.ts`:
+## Public Exports
 
-- Primary: `dpwh-blue-600` (#2563EB)
-- Success/Green: `dpwh-green-600` (#059669)
-- Warning/Yellow: `dpwh-yellow-600` (#D97706)
-- Error/Red: `dpwh-red-600` (#DC2626)
+`src/components/program-of-works/index.ts` exports:
 
-## Integration with Your API
+- `ProgramOfWorksForm` (canonical entry)
+- Reusable dashboard cards/components used by project screens
 
-Replace the sample data with actual API calls:
+## Migration Notes (Legacy Removal)
 
-```tsx
-'use client';
+The following legacy components/routes were removed or decommissioned in this refactor cycle:
 
-import { useEffect, useState } from 'react';
-import { ProgramOfWorksWorkspace } from '@/components/program-of-works';
+- `src/components/program-of-works/ProgramOfWorksWorkspace.tsx`
+- `src/components/program-of-works/ProgramOfWorksReport.tsx`
+- `src/app/program-of-works-example/page.tsx`
+- `src/app/estimate/[id]/program-of-works-report/page.tsx`
+- `src/app/cost-estimates/[id]/program-of-works-report/page.tsx`
 
-export default function ProjectProgramOfWorks({ params }) {
-  const [data, setData] = useState(null);
-  
-  useEffect(() => {
-    fetch(`/api/projects/${params.id}/program-of-works`)
-      .then(res => res.json())
-      .then(setData);
-  }, [params.id]);
-  
-  if (!data) return <div>Loading...</div>;
-  
-  return <ProgramOfWorksWorkspace {...data} />;
-}
-```
+Use `src/app/projects/[id]/pow-report/page.tsx` as the only supported prescribed-forms route.
 
-## Notes
+## Verification
 
-- **Responsive Design**: All components are mobile-responsive
-- **Currency Format**: Automatically formats to Philippine Peso (₱)
-- **Variance Indicators**: Shows green (↓) for savings, red (↑) for over-budget
-- **Interactive Charts**: Donut chart shows budget breakdown with tooltips
-- **PDF Export**: Hook provided for custom PDF generation
+Recommended checks after changes:
 
-## Future Enhancements
-
-- [ ] Add detailed BOQ modal when clicking on parts
-- [ ] Implement PDF export functionality
-- [ ] Add revision history timeline
-- [ ] Add equipment auto-calculation from DUPA
-- [ ] Add cost comparison charts
-- [ ] Add print-friendly layout
-
-## Support
-
-For issues or questions, refer to the main project documentation.
+- `npm run typecheck`
+- `npm run build`
+- Manual check of `projects/[id]/pow-report` for tab rendering and print output.

@@ -15,6 +15,13 @@ export function FormDUPAPage({ report, item, pageNumber, formatCurrency, formatN
   const equipmentRows = item.equipmentItems.length > 0 ? item.equipmentItems : [{ description: 'None', noOfUnits: 0, noOfHours: 0, hourlyRate: 0, amount: 0 }];
   const materialRows = item.materialItems.length > 0 ? item.materialItems : [{ description: 'None', unit: '-', quantity: 0, unitCost: 0, amount: 0 }];
 
+  const getLaborRowKey = (row: (typeof laborRows)[number], index: number) =>
+    `${row.designation}-${row.noOfPersons}-${row.noOfHours}-${row.hourlyRate}-${index}`;
+  const getEquipmentRowKey = (row: (typeof equipmentRows)[number], index: number) =>
+    `${row.description}-${row.noOfUnits}-${row.noOfHours}-${row.hourlyRate}-${index}`;
+  const getMaterialRowKey = (row: (typeof materialRows)[number], index: number) =>
+    `${row.description}-${row.unit}-${row.quantity}-${row.unitCost}-${index}`;
+
   return (
     <A4PageWrapper pageNumber={pageNumber} orientation="portrait">
       <DpwhFormHeader formNumber="13-16" />
@@ -47,7 +54,7 @@ export function FormDUPAPage({ report, item, pageNumber, formatCurrency, formatN
         </thead>
         <tbody>
           {laborRows.map((row, idx) => (
-            <tr key={`labor-${idx}`}>
+            <tr key={getLaborRowKey(row, idx)}>
               <td className="px-1 py-[1px]" style={{ border: '1px solid #000' }}>{idx === 0 ? 'A.1' : ''}</td>
               <td className="px-1 py-[1px]" style={{ border: '1px solid #000' }}>{row.designation}</td>
               <td className="px-1 py-[1px] text-right" style={{ border: '1px solid #000' }}>{row.noOfPersons > 0 ? formatNumber(row.noOfPersons) : '-'}</td>
@@ -61,7 +68,7 @@ export function FormDUPAPage({ report, item, pageNumber, formatCurrency, formatN
 
           <tr className="bg-[#333] text-white"><th className="px-1 py-1 text-left" style={{ border: '1px solid #000' }} colSpan={6}>EQUIPMENT</th></tr>
           {equipmentRows.map((row, idx) => (
-            <tr key={`equipment-${idx}`}>
+            <tr key={getEquipmentRowKey(row, idx)}>
               <td className="px-1 py-[1px]" style={{ border: '1px solid #000' }}>{idx === 0 ? 'B.1' : ''}</td>
               <td className="px-1 py-[1px]" style={{ border: '1px solid #000' }}>{row.description}</td>
               <td className="px-1 py-[1px] text-right" style={{ border: '1px solid #000' }}>{row.noOfUnits > 0 ? formatNumber(row.noOfUnits) : '-'}</td>
@@ -82,7 +89,7 @@ export function FormDUPAPage({ report, item, pageNumber, formatCurrency, formatN
 
           <tr className="bg-[#333] text-white"><th className="px-1 py-1 text-left" style={{ border: '1px solid #000' }} colSpan={6}>MATERIAL</th></tr>
           {materialRows.map((row, idx) => (
-            <tr key={`material-${idx}`}>
+            <tr key={getMaterialRowKey(row, idx)}>
               <td className="px-1 py-[1px]" style={{ border: '1px solid #000' }}>{idx === 0 ? 'F.1' : ''}</td>
               <td className="px-1 py-[1px]" style={{ border: '1px solid #000' }}>{row.description}</td>
               <td className="px-1 py-[1px] text-center" style={{ border: '1px solid #000' }}>{row.unit}</td>

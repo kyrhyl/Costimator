@@ -1,18 +1,18 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useState } from 'react';
-import { usePowReportData } from './hooks/usePowReportData';
-import { useAbcReportData } from './hooks/useAbcReportData';
-import { useDupaReportData } from './hooks/useDupaReportData';
+import { useCallback, useEffect, useState } from 'react';
+import { usePrescribedFormsData } from './hooks/usePrescribedFormsData';
 import { formatPowCurrency as formatCurrency, formatPowNumber as formatNumber } from './utils/formatters';
 import { PowTab } from './tabs/PowTab';
 import { AbcTab } from './tabs/AbcTab';
 import { DupaTab } from './tabs/DupaTab';
-import { PowPrintBundle } from './print/PowPrintBundle';
-import { AbcPrintBundle } from './print/AbcPrintBundle';
-import { DupaPrintBundle } from './print/DupaPrintBundle';
 import printStyles from './styles/pow-print.module.css';
+
+const PowPrintBundle = dynamic(() => import('./print/PowPrintBundle').then((mod) => mod.PowPrintBundle));
+const AbcPrintBundle = dynamic(() => import('./print/AbcPrintBundle').then((mod) => mod.AbcPrintBundle));
+const DupaPrintBundle = dynamic(() => import('./print/DupaPrintBundle').then((mod) => mod.DupaPrintBundle));
 
 interface PrescribedFormsWorkspaceProps {
   projectId: string;
@@ -22,15 +22,33 @@ type FormTab = 'pow' | 'abc' | 'dupa';
 
 export default function PrescribedFormsWorkspace({ projectId }: PrescribedFormsWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<FormTab>('pow');
+  const [printBundlesReady, setPrintBundlesReady] = useState(false);
 
-  const pow = usePowReportData(projectId);
-  const abc = useAbcReportData(projectId);
-  const dupa = useDupaReportData(projectId);
+  const { data, loading, error, refetch } = usePrescribedFormsData(projectId);
 
-  const loadingAny = pow.loading || abc.loading || dupa.loading;
-  const errorAny = pow.error || abc.error || dupa.error;
+  const preparePrintBundles = useCallback(() => {
+    setPrintBundlesReady(true);
+  }, []);
 
-  if (loadingAny) {
+  const handlePrint = useCallback(() => {
+    setPrintBundlesReady(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print();
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const beforePrint = () => setPrintBundlesReady(true);
+    window.addEventListener('beforeprint', beforePrint);
+
+    return () => {
+      window.removeEventListener('beforeprint', beforePrint);
+    };
+  }, []);
+
+  if (loading.any) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -41,19 +59,28 @@ export default function PrescribedFormsWorkspace({ projectId }: PrescribedFormsW
     );
   }
 
-  if (errorAny || !pow.data || !abc.data || !dupa.data) {
+  if (error.any || !data.pow || !data.abc || !data.dupa) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
         <div className="max-w-xl text-center bg-white border border-gray-200 rounded-lg p-8">
           <div className="text-5xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Unable to load prescribed forms</h2>
-          <p className="text-gray-600 mb-6">{errorAny || 'Missing report data.'}</p>
-          <Link
-            href={`/projects/${projectId}`}
-            className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Back to Project
-          </Link>
+          <p className="text-gray-600 mb-6">{error.any || 'Missing report data.'}</p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="inline-flex items-center justify-center px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700"
+            >
+              Retry
+            </button>
+            <Link
+              href={`/projects/${projectId}`}
+              className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Back to Project
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -72,7 +99,9 @@ export default function PrescribedFormsWorkspace({ projectId }: PrescribedFormsW
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => window.print()}
+              onMouseEnter={preparePrintBundles}
+              onFocus={preparePrintBundles}
+              onClick={handlePrint}
               className="inline-flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg font-medium hover:bg-slate-700"
             >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,24 +136,26 @@ export default function PrescribedFormsWorkspace({ projectId }: PrescribedFormsW
       <div className={`${printStyles.screenOnly} py-6`}>
         <div className="flex flex-col items-center">
           {activeTab === 'pow' && (
-            <PowTab data={pow.data} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+            <PowTab data={data.pow} formatCurrency={formatCurrency} formatNumber={formatNumber} />
           )}
 
           {activeTab === 'abc' && (
-            <AbcTab data={abc.data} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+            <AbcTab data={data.abc} formatCurrency={formatCurrency} formatNumber={formatNumber} />
           )}
 
           {activeTab === 'dupa' && (
-            <DupaTab data={dupa.data} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+            <DupaTab data={data.dupa} formatCurrency={formatCurrency} formatNumber={formatNumber} />
           )}
         </div>
       </div>
 
-      <div className={printStyles.printOnly}>
-        <PowPrintBundle data={pow.data} formatCurrency={formatCurrency} formatNumber={formatNumber} />
-        <AbcPrintBundle data={abc.data} formatCurrency={formatCurrency} formatNumber={formatNumber} />
-        <DupaPrintBundle data={dupa.data} formatCurrency={formatCurrency} formatNumber={formatNumber} />
-      </div>
+      {printBundlesReady && (
+        <div className={printStyles.printOnly}>
+          <PowPrintBundle data={data.pow} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+          <AbcPrintBundle data={data.abc} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+          <DupaPrintBundle data={data.dupa} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+        </div>
+      )}
     </div>
   );
 }
