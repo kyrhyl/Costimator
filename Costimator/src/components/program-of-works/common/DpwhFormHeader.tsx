@@ -1,7 +1,7 @@
 import { FORM_VERSIONS, FORM_TITLES } from '@/lib/utils/dpwh-constants';
 
 interface DpwhFormHeaderProps {
-  formNumber: '13-10' | '13-11' | '13-13';
+  formNumber: '13-10' | '13-11' | '13-13' | '13-14' | '13-15' | '13-16';
   compact?: boolean;
 }
 
@@ -13,18 +13,27 @@ export function DpwhFormHeader({ formNumber, compact = false }: DpwhFormHeaderPr
     '13-10': 'text-[0.9rem] font-bold mt-0.5 text-[#0038A8]',
     '13-11': 'text-[0.9rem] font-bold mt-0.5 text-[#0038A8]',
     '13-13': 'text-[0.9rem] font-bold uppercase tracking-[0.2em] mt-2 text-[#0038A8]',
+    '13-14': 'text-[0.9rem] font-bold mt-2 text-[#0038A8]',
+    '13-15': 'text-[0.9rem] font-bold mt-2 text-[#0038A8]',
+    '13-16': 'text-[0.9rem] font-bold mt-2 text-[#0038A8]',
   };
 
   const subtitleClasses = {
     '13-10': 'text-[0.6rem] font-bold uppercase tracking-widest',
     '13-11': 'text-[0.6rem] font-bold uppercase tracking-widest',
     '13-13': 'text-[0.6rem] font-normal',
+    '13-14': 'text-[0.6rem] font-normal',
+    '13-15': 'text-[0.6rem] font-normal',
+    '13-16': 'text-[0.6rem] font-normal',
   };
 
   const departmentClasses = {
     '13-10': 'text-[0.7rem] font-bold uppercase',
     '13-11': 'text-[0.7rem] font-bold uppercase',
     '13-13': 'text-[0.7rem] font-bold uppercase tracking-wide',
+    '13-14': 'text-[0.7rem] font-bold uppercase',
+    '13-15': 'text-[0.7rem] font-bold uppercase',
+    '13-16': 'text-[0.7rem] font-bold uppercase',
   };
 
   if (compact) {

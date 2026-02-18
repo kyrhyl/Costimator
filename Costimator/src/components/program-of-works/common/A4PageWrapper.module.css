@@ -5,8 +5,6 @@
 
 /* A4 Page Container */
 .a4-page {
-  width: 297mm;
-  min-height: 210mm;
   background: white;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
               0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -15,12 +13,16 @@
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  page-break-before: always;
-  page-break-after: always;
 }
 
-.a4-page:first-of-type {
-  page-break-before: auto;
+.a4-page[data-orientation='landscape'] {
+  width: 297mm;
+  min-height: 210mm;
+}
+
+.a4-page[data-orientation='portrait'] {
+  width: 210mm;
+  min-height: 297mm;
 }
 
 /* Page indicator - visible on screen only */

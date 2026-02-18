@@ -1,5 +1,16 @@
-@page {
+@page landscapePage {
   size: A4 landscape;
+  margin: 5mm 0mm 5mm 0mm;
+  @top-left { content: none; }
+  @top-center { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-center { content: none; }
+  @bottom-right { content: none; }
+}
+
+@page portraitPage {
+  size: A4 portrait;
   margin: 5mm 0mm 5mm 0mm;
   @top-left { content: none; }
   @top-center { content: none; }
@@ -13,9 +24,15 @@
   display: block;
 }
 
+.screenOnly {
+  display: block;
+}
+
+.printOnly {
+  display: none;
+}
+
 :global(.a4-page) {
-  width: 297mm;
-  min-height: 210mm;
   background: white;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
               0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -24,8 +41,18 @@
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  page-break-before: always;
-  page-break-after: always;
+}
+
+:global(.a4-page-landscape) {
+  width: 297mm;
+  min-height: 210mm;
+  page: landscapePage;
+}
+
+:global(.a4-page-portrait) {
+  width: 210mm;
+  min-height: 297mm;
+  page: portraitPage;
 }
 
 :global(.a4-page:first-of-type) {
@@ -49,6 +76,7 @@
   }
 
   .noPrint,
+  .screenOnly,
   :global([data-print-hide="true"]) {
     display: none !important;
     visibility: hidden !important;
@@ -81,10 +109,23 @@
   :global(.a4-page) {
     box-shadow: none;
     margin: 0;
-    width: 100% !important;
+    width: auto !important;
     min-height: auto;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  :global(.a4-page + .a4-page) {
+    break-before: page;
     page-break-before: always;
-    page-break-after: always;
+  }
+
+  :global(.a4-page-landscape) {
+    page: landscapePage;
+  }
+
+  :global(.a4-page-portrait) {
+    page: portraitPage;
   }
 
   :global(.a4-page:first-of-type) {
@@ -112,5 +153,9 @@
   :global(.itemized-table th),
   :global(.itemized-table td) {
     border: 1px solid #000 !important;
+  }
+
+  .printOnly {
+    display: block !important;
   }
 }

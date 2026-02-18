@@ -63,12 +63,18 @@ export const FORM_VERSIONS = {
   '13-10': 'DPWH-QMSP-13-10 Rev.00',
   '13-11': 'DPWH-QMSP-13-11 Rev.00',
   '13-13': 'DPWH-QMSP-13-13 Rev.00',
+  '13-14': 'DPWH-QMSP-13-14 Rev.00',
+  '13-15': 'DPWH-QMSP-13-15 Rev.00',
+  '13-16': 'DPWH-QMSP-13-16 Rev.00',
 } as const;
 
 export const FORM_TITLES = {
   '13-10': 'PROGRAM OF WORKS/BUDGET COST',
   '13-11': 'ITEMIZED BREAKDOWN',
   '13-13': 'Detailed Breakdown of Component for Each Item',
+  '13-14': 'SUMMARY OF APPROVED BUDGET FOR THE CONTRACT',
+  '13-15': 'APPROVED BUDGET FOR THE CONTRACT',
+  '13-16': 'DETAILED UNIT PRICE ANALYSIS',
 } as const;
 
 // ============================================================================
