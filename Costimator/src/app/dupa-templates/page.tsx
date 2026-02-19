@@ -18,20 +18,27 @@ interface DUPATemplate {
   cpPercentage: number;
   vatPercentage: number;
   isActive: boolean;
+  isPinnedCommon?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export default function DUPATemplatesPage() {
   const [templates, setTemplates] = useState<DUPATemplate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [viewMode, setViewMode] = useState<'common' | 'all'>('common');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasRequestedLoad, setHasRequestedLoad] = useState(false);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [partFilter, setPartFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [favoriteFilter, setFavoriteFilter] = useState<string>('all');
   
   // Parts and categories extracted from data
   const [parts, setParts] = useState<string[]>([]);
@@ -52,28 +59,48 @@ export default function DUPATemplatesPage() {
   const [generateResult, setGenerateResult] = useState<any>(null);
 
   const fetchTemplates = useCallback(async () => {
+    if (!hasRequestedLoad && !searchTerm.trim()) {
+      setTemplates([]);
+      setTotalCount(0);
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      setError('');
       const params = new URLSearchParams();
-      
+      const requestedLimit = viewMode === 'all' ? '5000' : '50';
+
+      params.append('view', viewMode);
+      params.append('page', String(page));
+      params.append('limit', requestedLimit);
       if (searchTerm) params.append('search', searchTerm);
       if (partFilter) params.append('part', partFilter);
       if (categoryFilter) params.append('category', categoryFilter);
       if (statusFilter !== 'all') params.append('isActive', statusFilter);
-      
+      if (favoriteFilter !== 'all') params.append('isPinnedCommon', favoriteFilter);
+
       const response = await fetch(`/api/dupa-templates?${params.toString()}`);
       const data = await response.json();
-      
+
       if (data.success) {
-        setTemplates(data.data);
-        
+        const nextRows: DUPATemplate[] = data.data || [];
+        setTemplates((prev) => (page === 1 ? nextRows : [...prev, ...nextRows]));
+        setTotalCount(data.pagination?.total || nextRows.length);
+        setHasMore(Boolean(data.pagination?.hasMore));
+
         // Extract unique parts
-        const uniqueParts = [...new Set(data.data.map((t: DUPATemplate) => t.part).filter(Boolean))];
-        setParts(uniqueParts as string[]);
-        
-        // Extract unique categories
-        const cats = [...new Set(data.data.map((t: DUPATemplate) => t.category).filter(Boolean))];
-        setCategories(cats as string[]);
+        if (page === 1) {
+          const uniqueParts = [...new Set(nextRows.map((t: DUPATemplate) => t.part).filter(Boolean))];
+          setParts(uniqueParts as string[]);
+
+          // Extract unique categories
+          const cats = [...new Set(nextRows.map((t: DUPATemplate) => t.category).filter(Boolean))];
+          setCategories(cats as string[]);
+        }
+
       } else {
         setError(data.error || 'Failed to fetch templates');
       }
@@ -82,11 +109,23 @@ export default function DUPATemplatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, partFilter, categoryFilter, statusFilter]);
+  }, [searchTerm, partFilter, categoryFilter, statusFilter, favoriteFilter, viewMode, page, hasRequestedLoad]);
 
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, partFilter, categoryFilter, statusFilter, favoriteFilter, viewMode]);
+
+  const refreshFromFirstPage = () => {
+    if (page !== 1) {
+      setPage(1);
+      return;
+    }
+    fetchTemplates();
+  };
 
   const handleDelete = async (template: DUPATemplate) => {
     if (!confirm(`Are you sure you want to delete template "${template.payItemNumber}"?`)) {
@@ -101,7 +140,7 @@ export default function DUPATemplatesPage() {
       const data = await response.json();
       
       if (data.success) {
-        fetchTemplates();
+        refreshFromFirstPage();
       } else {
         alert(data.error || 'Failed to delete template');
       }
@@ -121,7 +160,7 @@ export default function DUPATemplatesPage() {
       const data = await response.json();
       
       if (data.success) {
-        fetchTemplates();
+        refreshFromFirstPage();
       } else {
         alert(data.error || 'Failed to update template status');
       }
@@ -156,7 +195,7 @@ export default function DUPATemplatesPage() {
 
       if (data.success) {
         setGenerateResult(data.data);
-        fetchTemplates(); // Refresh the list
+        refreshFromFirstPage(); // Refresh the list
       } else {
         alert(data.error || 'Failed to generate templates');
       }
@@ -199,6 +238,37 @@ export default function DUPATemplatesPage() {
     }
   };
 
+  const toggleFavorite = async (template: DUPATemplate) => {
+    const nextFavoriteState = !template.isPinnedCommon;
+    setTemplates((prev) =>
+      prev.map((row) => (row._id === template._id ? { ...row, isPinnedCommon: nextFavoriteState } : row))
+    );
+
+    try {
+      const response = await fetch(`/api/dupa-templates/${template._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPinnedCommon: nextFavoriteState }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        refreshFromFirstPage();
+      } else {
+        setTemplates((prev) =>
+          prev.map((row) => (row._id === template._id ? { ...row, isPinnedCommon: template.isPinnedCommon } : row))
+        );
+        alert(data.error || 'Failed to update favorite');
+      }
+    } catch (err: any) {
+      setTemplates((prev) =>
+        prev.map((row) => (row._id === template._id ? { ...row, isPinnedCommon: template.isPinnedCommon } : row))
+      );
+      alert(err.message || 'Failed to update favorite');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8" suppressHydrationWarning>
       <div className="max-w-7xl mx-auto">
@@ -222,7 +292,34 @@ export default function DUPATemplatesPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="inline-flex rounded-lg border border-gray-200 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setHasRequestedLoad(true);
+                  setViewMode('common');
+                }}
+                className={`px-3 py-1.5 text-sm rounded-md ${viewMode === 'common' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                Common Templates
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setHasRequestedLoad(true);
+                  setViewMode('all');
+                }}
+                className={`px-3 py-1.5 text-sm rounded-md ${viewMode === 'all' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                Show All
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Search always checks all active templates.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Search
@@ -231,7 +328,10 @@ export default function DUPATemplatesPage() {
                 type="text"
                 placeholder="Pay item number or description..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchTerm(value);
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 suppressHydrationWarning
               />
@@ -293,6 +393,23 @@ export default function DUPATemplatesPage() {
                 <option value="false">Inactive Only</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Favorite
+              </label>
+              <select
+                value={favoriteFilter}
+                onChange={(e) => setFavoriteFilter(e.target.value)}
+                disabled={viewMode === 'common'}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                suppressHydrationWarning
+              >
+                <option value="all">All</option>
+                <option value="true">Favorites Only</option>
+                <option value="false">Non-Favorites</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -308,11 +425,16 @@ export default function DUPATemplatesPage() {
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <div className="text-gray-500">Loading templates...</div>
           </div>
+        ) : !hasRequestedLoad && !searchTerm.trim() ? (
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <div className="text-gray-700 font-medium">No templates loaded by default</div>
+            <p className="text-sm text-gray-500 mt-1">Use search, or click Common Templates / Show All to load records.</p>
+          </div>
         ) : (
           <>
             {/* Results Count */}
             <div className="mb-4 text-sm text-gray-600">
-              Showing {templates.length} template{templates.length !== 1 ? 's' : ''}
+              Showing {templates.length} of {totalCount} template{totalCount !== 1 ? 's' : ''} ({viewMode === 'common' ? 'common' : 'all'})
             </div>
 
             {/* Templates Table */}
@@ -342,6 +464,9 @@ export default function DUPATemplatesPage() {
                       <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Status
                       </th>
+                      <th className="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Favorite
+                      </th>
                       <th className="w-64 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         Actions
                       </th>
@@ -350,13 +475,13 @@ export default function DUPATemplatesPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {templates.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-3 py-12 text-center text-gray-500">
+                        <td colSpan={9} className="px-3 py-12 text-center text-gray-500">
                           No templates found. Create your first template to get started.
                         </td>
                       </tr>
                     ) : (
                       templates.map((template) => (
-                        <tr key={template._id} className="hover:bg-gray-50">
+                        <tr key={template._id} className={template.isPinnedCommon ? 'bg-amber-50 hover:bg-amber-100/70' : 'hover:bg-gray-50'}>
                           <td className="px-3 py-3">
                             <div className="font-medium text-gray-900 text-sm">
                               {template.payItemNumber}
@@ -393,6 +518,15 @@ export default function DUPATemplatesPage() {
                               {template.isActive ? 'Active' : 'Inactive'}
                             </button>
                           </td>
+                          <td className="px-3 py-3">
+                            {template.isPinnedCommon ? (
+                              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+                                ★ Favorite
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </td>
                           <td className="px-3 py-3 text-sm font-medium">
                             <div className="flex flex-wrap gap-2">
                               <Link
@@ -414,6 +548,12 @@ export default function DUPATemplatesPage() {
                                 Instantiate
                               </button>
                               <button
+                                onClick={() => toggleFavorite(template)}
+                                className={template.isPinnedCommon ? 'text-amber-700 hover:text-amber-900' : 'text-amber-600 hover:text-amber-800'}
+                              >
+                                {template.isPinnedCommon ? '★ Unfavorite' : '☆ Favorite'}
+                              </button>
+                              <button
                                 onClick={() => handleDelete(template)}
                                 className="text-red-600 hover:text-red-900"
                               >
@@ -428,6 +568,18 @@ export default function DUPATemplatesPage() {
                 </table>
               </div>
             </div>
+
+            {hasMore && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => prev + 1)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Load More
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

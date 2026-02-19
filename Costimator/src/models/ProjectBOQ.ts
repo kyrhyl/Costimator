@@ -150,5 +150,6 @@ const ProjectBOQSchema = new Schema<IProjectBOQ>(
 
 // Compound index for project + template
 ProjectBOQSchema.index({ projectId: 1, payItemNumber: 1 });
+ProjectBOQSchema.index({ templateId: 1, updatedAt: -1 });
 
 export default mongoose.models.ProjectBOQ || mongoose.model<IProjectBOQ>('ProjectBOQ', ProjectBOQSchema);

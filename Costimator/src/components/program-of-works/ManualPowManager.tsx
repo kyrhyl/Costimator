@@ -61,6 +61,7 @@ export default function ManualPowManager({
   onManualVersionSaved,
 }: ManualPowManagerProps) {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [loadCommonTemplates, setLoadCommonTemplates] = useState(false);
   const [templateSearch, setTemplateSearch] = useState('');
   const [partFilter, setPartFilter] = useState('all');
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<Record<string, boolean>>({});
@@ -94,6 +95,7 @@ export default function ManualPowManager({
     enabled: showTemplateModal,
     templateSearch,
     partFilter,
+    loadCommon: loadCommonTemplates,
   });
 
   const { laborLocations, loadingLaborLocations, cmpdOptions, loadingCmpdVersions } = useManualPowMasterData({
@@ -104,6 +106,7 @@ export default function ManualPowManager({
   const hasManualSettings = Boolean(manualConfig?.laborLocation || district || projectLocation);
 
   const resetTemplateModalState = () => {
+    setLoadCommonTemplates(false);
     setTemplateSearch('');
     setPartFilter('all');
     setSelectedTemplateIds({});
@@ -461,7 +464,9 @@ export default function ManualPowManager({
         error={error}
         bulkError={bulkError}
         bulkSaving={bulkSaving}
+        loadCommonEnabled={loadCommonTemplates}
         onClose={closeTemplateModal}
+        onLoadCommon={() => setLoadCommonTemplates(true)}
         onTemplateSearchChange={setTemplateSearch}
         onPartFilterChange={setPartFilter}
         onToggleTemplateSelection={toggleTemplateSelection}

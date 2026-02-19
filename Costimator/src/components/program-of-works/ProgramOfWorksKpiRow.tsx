@@ -19,7 +19,7 @@ export default function ProgramOfWorksKpiRow({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
         <p className="text-xs font-semibold text-gray-500 uppercase">Total Project Cost</p>
         <p className="text-2xl font-bold text-gray-900 mt-2">{formatCurrency(totalProjectCost)}</p>
@@ -30,12 +30,6 @@ export default function ProgramOfWorksKpiRow({
         <p className="text-xs font-semibold text-gray-500 uppercase">Direct Cost (Submitted)</p>
         <p className="text-2xl font-bold text-gray-900 mt-2">{formatCurrency(directCost)}</p>
         <p className="text-xs text-gray-500 mt-2">Before OCM/CP/VAT</p>
-      </div>
-
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-        <p className="text-xs font-semibold text-gray-500 uppercase">Variance</p>
-        <p className="text-2xl font-bold text-gray-400 mt-2">₱0.00</p>
-        <p className="text-xs text-gray-500 mt-2">Evaluated data not enabled</p>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">

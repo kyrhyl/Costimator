@@ -81,6 +81,7 @@ export interface IDUPATemplate extends Document {
   specification?: string;
   notes?: string;
   isActive: boolean;
+  isPinnedCommon: boolean;
   
   createdAt: Date;
   updatedAt: Date;
@@ -165,6 +166,10 @@ const dupaTemplateSchema = new Schema<IDUPATemplate>(
     isActive: {
       type: Boolean,
       default: true
+    },
+    isPinnedCommon: {
+      type: Boolean,
+      default: false
     }
   },
   {
@@ -177,6 +182,7 @@ dupaTemplateSchema.index({ normalizedPayItemNumber: 1 });
 dupaTemplateSchema.index({ part: 1 });
 dupaTemplateSchema.index({ category: 1 });
 dupaTemplateSchema.index({ isActive: 1 });
+dupaTemplateSchema.index({ isPinnedCommon: 1, isActive: 1 });
 
 // Normalize pay item numbers for matching
 dupaTemplateSchema.pre('save', function() {

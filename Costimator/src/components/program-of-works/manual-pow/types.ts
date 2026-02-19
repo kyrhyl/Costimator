@@ -39,6 +39,7 @@ export interface TemplateSummary {
   unitOfMeasurement: string;
   part?: string;
   category?: string;
+  isPinnedCommon?: boolean;
 }
 
 export interface StagedTemplate extends TemplateSummary {

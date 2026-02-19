@@ -5,9 +5,10 @@ interface UseManualPowTemplatesOptions {
   enabled: boolean;
   templateSearch: string;
   partFilter: string;
+  loadCommon: boolean;
 }
 
-export function useManualPowTemplates({ enabled, templateSearch, partFilter }: UseManualPowTemplatesOptions) {
+export function useManualPowTemplates({ enabled, templateSearch, partFilter, loadCommon }: UseManualPowTemplatesOptions) {
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -15,7 +16,18 @@ export function useManualPowTemplates({ enabled, templateSearch, partFilter }: U
   useEffect(() => {
     if (!enabled) return;
 
+    const hasSearch = Boolean(templateSearch.trim());
+    if (!hasSearch && !loadCommon) {
+      setTemplates([]);
+      setLoadingTemplates(false);
+      setTemplateError(null);
+      return;
+    }
+
     const controller = new AbortController();
+    const debounceTimer = setTimeout(() => {
+      loadTemplates();
+    }, 300);
 
     async function loadTemplates() {
       setLoadingTemplates(true);
@@ -23,13 +35,16 @@ export function useManualPowTemplates({ enabled, templateSearch, partFilter }: U
 
       try {
         const params = new URLSearchParams();
-        if (templateSearch) {
-          params.set('search', templateSearch);
+        if (hasSearch) {
+          params.set('search', templateSearch.trim());
+        } else {
+          params.set('view', 'common');
         }
         if (partFilter !== 'all') {
           params.set('part', partFilter);
         }
         params.set('isActive', 'true');
+        params.set('limit', '50');
         const query = params.toString() ? `?${params.toString()}` : '';
         const res = await fetch(`/api/dupa-templates${query}`, { signal: controller.signal });
         if (!res.ok) {
@@ -50,10 +65,11 @@ export function useManualPowTemplates({ enabled, templateSearch, partFilter }: U
       }
     }
 
-    loadTemplates();
-
-    return () => controller.abort();
-  }, [enabled, templateSearch, partFilter]);
+    return () => {
+      clearTimeout(debounceTimer);
+      controller.abort();
+    };
+  }, [enabled, templateSearch, partFilter, loadCommon]);
 
   const resetTemplateState = () => {
     setTemplateError(null);

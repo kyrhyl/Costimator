@@ -16,7 +16,9 @@ import ProgramOfWorksHauling from '@/components/program-of-works/ProgramOfWorksH
 import DigitalSignOffs, { type Signatory } from '@/components/program-of-works/DigitalSignOffs';
 import CreateEstimateModal from '@/components/cost-estimates/CreateEstimateModal';
 import ManualPowManager from '@/components/program-of-works/ManualPowManager';
+import { DupaTab } from '@/components/program-of-works/tabs/DupaTab';
 import type { ProjectBoqItem } from '@/components/program-of-works/manual-pow/types';
+import type { DupaReportData } from '@/types/dupa';
 import { derivePartLabel, normalizePart } from '@/lib/utils/dpwh-constants';
 import { computePercentOfProjectCost } from '@/lib/utils/pow-math';
 
@@ -78,7 +80,23 @@ interface PowAdjustment {
   reason?: string;
 }
 
+interface DupaAdjustmentRecord {
+  itemKey: string;
+  payItemNumber: string;
+  payItemDescription: string;
+  part: string;
+  unitOfMeasurement: string;
+  outputPerHour: number;
+  quantity: number;
+  laborItems: DupaReportData['items'][number]['laborItems'];
+  equipmentItems: DupaReportData['items'][number]['equipmentItems'];
+  materialItems: DupaReportData['items'][number]['materialItems'];
+  totals: DupaReportData['items'][number]['totals'];
+}
+
 const getLineKey = (line: any, index: number) => `${line?._id || line?.payItemNumber || 'line'}-${index}`;
+const getDupaItemKey = (item: DupaReportData['items'][number], index: number) =>
+  `${item.part}-${item.payItemNumber}-${item.payItemDescription}::${index}`;
 
 const applyEstimateAdjustments = (estimate: any, adjustmentsByLineKey: Record<string, PowAdjustment>) => {
   if (!estimate?.estimateLines?.length) return estimate;
@@ -158,7 +176,12 @@ export default function ProgramOfWorksWorkspacePage() {
   const [activeSection, setActiveSection] = useState('overview');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [itemSearch, setItemSearch] = useState('');
-  const [partFilter, setPartFilter] = useState('all');
+  const [dupaData, setDupaData] = useState<DupaReportData | null>(null);
+  const [dupaLoading, setDupaLoading] = useState(false);
+  const [dupaError, setDupaError] = useState<string | null>(null);
+  const [dupaAdjustments, setDupaAdjustments] = useState<Record<string, DupaAdjustmentRecord>>({});
+  const [selectedDupaPrintKey, setSelectedDupaPrintKey] = useState<string | null>(null);
+  const [versionNotFound, setVersionNotFound] = useState(false);
   const [powAdjustments, setPowAdjustments] = useState<Record<string, PowAdjustment>>({});
   const [adjustmentNotice, setAdjustmentNotice] = useState<string | null>(null);
   const estimateIdFromQuery = searchParams.get('estimateId');
@@ -166,6 +189,7 @@ export default function ProgramOfWorksWorkspacePage() {
   const sectionFromQuery = searchParams.get('section');
   const isManualPow = project?.powMode === 'manual';
   const isManualWorkspace = isManualPow && !(viewFromQuery === 'takeoff' && Boolean(estimateIdFromQuery));
+  const dupaEstimateRef = isManualWorkspace ? 'manual' : (selectedEstimateId || estimateIdFromQuery || '');
 
   useEffect(() => {
     if (projectId) {
@@ -183,9 +207,23 @@ export default function ProgramOfWorksWorkspacePage() {
   }, [estimateIdFromQuery, estimates, selectedEstimateId]);
 
   useEffect(() => {
+    if (loadingProject || !projectId) return;
+    const takeoffContext = project?.powMode !== 'manual' || viewFromQuery === 'takeoff';
+    if (takeoffContext && !estimateIdFromQuery) {
+      router.replace(`/projects/${projectId}?tab=estimates`);
+    }
+  }, [loadingProject, project?.powMode, viewFromQuery, estimateIdFromQuery, projectId, router]);
+
+  useEffect(() => {
     if (!sectionFromQuery) return;
     setActiveSection(sectionFromQuery);
   }, [sectionFromQuery]);
+
+  useEffect(() => {
+    if (!isManualWorkspace && activeSection === 'manual-boq') {
+      setActiveSection('overview');
+    }
+  }, [isManualWorkspace, activeSection]);
 
   useEffect(() => {
     if (selectedEstimateId) {
@@ -198,6 +236,12 @@ export default function ProgramOfWorksWorkspacePage() {
       loadManualBoq();
     }
   }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    if (!isManualWorkspace && !dupaEstimateRef) return;
+    void loadDupaReport();
+  }, [projectId, isManualWorkspace, dupaEstimateRef]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -230,9 +274,18 @@ export default function ProgramOfWorksWorkspacePage() {
         : null;
 
       if (queryMatch) {
+        setVersionNotFound(false);
         setSelectedEstimateId(queryMatch._id);
         return;
       }
+
+      if (estimateIdFromQuery) {
+        setVersionNotFound(true);
+        setSelectedEstimateId(null);
+        return;
+      }
+
+      setVersionNotFound(false);
 
       if (estimatesList.length > 0 && !selectedEstimateId) {
         const activeEstimate = estimatesList.find((e: any) => e.status === 'approved') || estimatesList[0];
@@ -277,8 +330,56 @@ export default function ProgramOfWorksWorkspacePage() {
   };
 
   const handlePartClick = (part: string) => {
-    setActiveSection('overview');
-    setPartFilter(part);
+    setActiveSection('itemized-breakdown');
+    setItemSearch(part.replace('PART ', ''));
+  };
+
+  const loadDupaReport = async () => {
+    if (!projectId) return;
+    setDupaLoading(true);
+    setDupaError(null);
+    try {
+      const [baseRes, adjustmentsRes] = await Promise.all([
+        fetch(`/api/projects/${projectId}/dupa-report`),
+        fetch(`/api/projects/${projectId}/dupa-adjustments?estimateRef=${encodeURIComponent(dupaEstimateRef || 'manual')}`),
+      ]);
+      const baseJson = await baseRes.json();
+      const adjustmentsJson = await adjustmentsRes.json();
+
+      if (!baseRes.ok || !baseJson.success) {
+        throw new Error(baseJson.error || 'Failed to load DUPA report');
+      }
+
+      const adjustmentMap: Record<string, DupaAdjustmentRecord> = {};
+      if (adjustmentsRes.ok && adjustmentsJson.success) {
+        (adjustmentsJson.data || []).forEach((row: DupaAdjustmentRecord) => {
+          adjustmentMap[row.itemKey] = row;
+        });
+      }
+
+      const baseData: DupaReportData = baseJson.data;
+      const mergedItems = baseData.items.map((item, index) => {
+        const itemKey = getDupaItemKey(item, index);
+        const adjustment = adjustmentMap[itemKey];
+        if (!adjustment) return item;
+        return {
+          ...item,
+          laborItems: adjustment.laborItems,
+          equipmentItems: adjustment.equipmentItems,
+          materialItems: adjustment.materialItems,
+          totals: adjustment.totals,
+        };
+      });
+
+      setDupaAdjustments(adjustmentMap);
+      setDupaData({ ...baseData, items: mergedItems });
+    } catch (err: any) {
+      setDupaError(err.message || 'Failed to load DUPA report');
+      setDupaAdjustments({});
+      setDupaData(null);
+    } finally {
+      setDupaLoading(false);
+    }
   };
 
   const handleExportPDF = () => {
@@ -474,6 +575,71 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
     window.setTimeout(() => setAdjustmentNotice(null), 2200);
   };
 
+  const saveDupaAdjustment = async (itemKey: string, item: DupaReportData['items'][number]) => {
+    const estimateRef = dupaEstimateRef || 'manual';
+    const payload = {
+      estimateRef,
+      itemKey,
+      payItemNumber: item.payItemNumber,
+      payItemDescription: item.payItemDescription,
+      part: item.part,
+      unitOfMeasurement: item.unitOfMeasurement,
+      outputPerHour: item.outputPerHour,
+      quantity: item.quantity,
+      laborItems: item.laborItems,
+      equipmentItems: item.equipmentItems,
+      materialItems: item.materialItems,
+      totals: item.totals,
+    };
+
+    const res = await fetch(`/api/projects/${projectId}/dupa-adjustments`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to save DUPA adjustment');
+    }
+
+    setDupaAdjustments((prev) => ({ ...prev, [itemKey]: payload as DupaAdjustmentRecord }));
+    setDupaData((prev) => {
+      if (!prev) return prev;
+      const merged = prev.items.map((entry, index) => (getDupaItemKey(entry, index) === itemKey ? item : entry));
+      return { ...prev, items: merged };
+    });
+
+    const matchedLine = (activeEstimate?.estimateLines || []).find(
+      (line: any) => String(line.payItemNumber || '') === String(item.payItemNumber || ''),
+    );
+    if (matchedLine) {
+      await savePowAdjustment({
+        lineKey: matchedLine.lineKey || getLineKey(matchedLine, 0),
+        payItemNumber: String(matchedLine.payItemNumber || ''),
+        quantity: Number(matchedLine.quantity || 0),
+        unitCost: Number(item.totals.totalUnitCostSubmitted || 0),
+        reason: 'DUPA adjustment',
+      });
+    }
+  };
+
+  const resetDupaAdjustment = async (itemKey: string) => {
+    const estimateRef = dupaEstimateRef || 'manual';
+    const params = new URLSearchParams({ estimateRef, itemKey });
+    const res = await fetch(`/api/projects/${projectId}/dupa-adjustments?${params.toString()}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to reset DUPA adjustment');
+    }
+
+    setDupaAdjustments((prev) => {
+      const next = { ...prev };
+      delete next[itemKey];
+      return next;
+    });
+    await loadDupaReport();
+  };
+
   const transformToEquipment = (estimate: any): Equipment[] => {
     const equipmentMap = new Map<string, number>();
     const lines = estimate?.estimateLines || [];
@@ -547,8 +713,6 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
 
     const search = itemSearch.trim().toLowerCase();
     const filteredLines = lines.filter((line: any) => {
-      const partKey = normalizePart(line.part);
-      if (partFilter !== 'all' && partKey !== partFilter) return false;
       if (!search) return true;
       return String(line.payItemNumber || '').toLowerCase().includes(search)
         || String(line.payItemDescription || '').toLowerCase().includes(search);
@@ -593,7 +757,7 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
 
     const groups = Array.from(groupsMap.values());
     return { groups, total };
-  }, [activeEstimate, itemSearch, partFilter]);
+  }, [activeEstimate, itemSearch]);
   const signatories = useMemo<Signatory[]>(() => ([
     { id: 'sig-1', name: 'Project Engineer', role: 'Prepared By', status: 'pending' },
     { id: 'sig-2', name: 'District Engineer', role: 'Reviewed By', status: 'pending' },
@@ -613,8 +777,17 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
         )
       },
       {
+        id: 'itemized-breakdown',
+        label: 'Itemized Cost Breakdown',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5h6m-8 4h10m-10 4h10m-10 4h10M5 5h.01M5 9h.01M5 13h.01M5 17h.01" />
+          </svg>
+        )
+      },
+      {
         id: 'manual-boq',
-        label: 'Manual BOQ Entry',
+        label: 'BOQ Entry',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-6-8h6m3 10a2 2 0 01-2 2H8a2 2 0 01-2-2V6a2 2 0 012-2h6l4 4v10z" />
@@ -645,6 +818,15 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-6-8h6m2 10H7a2 2 0 01-2-2V6a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V18a2 2 0 01-2 2z" />
+          </svg>
+        )
+      },
+      {
+        id: 'dupa-analysis',
+        label: 'Detailed Unit Price Analysis',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v8m4-4H8m10 9H6a2 2 0 01-2-2V5a2 2 0 012-2h8l6 6v10a2 2 0 01-2 2z" />
           </svg>
         )
       },
@@ -696,6 +878,27 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
     ];
   }, []);
 
+  const sectionGroups = useMemo(
+    () => [
+      {
+        key: 'workspace',
+        label: 'WORKSPACE',
+        items: sections.filter((section) => ['overview', 'itemized-breakdown', ...(isManualWorkspace ? ['manual-boq'] : [])].includes(section.id)),
+      },
+      {
+        key: 'analysis',
+        label: 'ANALYSIS',
+        items: sections.filter((section) => ['description', 'dupa-analysis', 'hauling', 'equipment', 'expenditures'].includes(section.id)),
+      },
+      {
+        key: 'governance',
+        label: 'GOVERNANCE',
+        items: sections.filter((section) => ['project-details', 'sign-offs', 'reports'].includes(section.id)),
+      },
+    ],
+    [sections, isManualWorkspace],
+  );
+
   if (loadingProject) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -724,24 +927,30 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
             </button>
           </div>
 
-          <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-            {!isSidebarCollapsed && (
-              <div className="text-xs font-medium text-gray-500 mb-2 px-2">SECTIONS</div>
-            )}
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => handleSectionClick(section.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  activeSection === section.id
-                    ? 'bg-dpwh-blue-100 text-dpwh-blue-800'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                title={section.label}
-              >
-                {section.icon}
-                {!isSidebarCollapsed && <span className="text-sm font-medium">{section.label}</span>}
-              </button>
+          <nav className="flex-1 p-2 space-y-2 overflow-y-auto">
+            {sectionGroups.map((group) => (
+              <div key={group.key}>
+                {!isSidebarCollapsed && (
+                  <div className="text-[11px] font-semibold text-gray-400 mb-1 px-2 tracking-wide">{group.label}</div>
+                )}
+                <div className="space-y-1">
+                  {group.items.map((section) => (
+                    <button
+                      key={section.id}
+                      onClick={() => handleSectionClick(section.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                        activeSection === section.id
+                          ? 'bg-dpwh-blue-100 text-dpwh-blue-800'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title={section.label}
+                    >
+                      {section.icon}
+                      {!isSidebarCollapsed && <span className="text-sm font-medium">{section.label}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
 
@@ -767,7 +976,7 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="bg-white border-b border-gray-200 px-6 py-4 flex flex-wrap gap-4 items-center justify-between">
+          <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-200 px-6 py-4 flex flex-wrap gap-4 items-center justify-between">
             <div>
               <Link href={`/projects/${projectId}?tab=estimates`} className="text-sm text-blue-600 hover:text-blue-800">
                 ← Back to Project Details
@@ -788,7 +997,21 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveSection('reports')}
+                className="inline-flex items-center gap-2 border border-blue-200 text-blue-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-50"
+              >
+                Reports
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSection('dupa-analysis')}
+                className="inline-flex items-center gap-2 border border-emerald-200 text-emerald-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-emerald-50"
+              >
+                DUPA Analysis
+              </button>
               {!isManualWorkspace && (
                 <button
                   onClick={() => setShowCreateModal(true)}
@@ -810,18 +1033,11 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
               </div>
             )}
             {project && (
-              <div className="mb-6 flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-blue-900">
-                    Program of Works Mode: {isManualWorkspace ? 'Manual BOQ Input' : 'Takeoff Linked'}
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    {isManualWorkspace
-                      ? 'Manual entries are independent of quantity takeoff. Add BOQ lines directly from DUPA templates.'
-                      : 'This Program of Works reflects cost estimates generated from quantity takeoff versions.'}
-                  </p>
-                </div>
-                <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+              <div className="mb-3 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                <p className="text-xs font-semibold text-blue-900">
+                  Program of Works Mode: {isManualWorkspace ? 'Manual BOQ Input' : 'Takeoff Linked'}
+                </p>
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                   isManualWorkspace ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                 }`}>
                   {isManualWorkspace ? 'Manual Workspace' : 'Takeoff Workspace'}
@@ -829,23 +1045,16 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
               </div>
             )}
 
-            {!isManualWorkspace && estimates.length > 1 && (
-              <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Program of Works Version
-                </label>
-                <select
-                  value={selectedEstimateId || ''}
-                  onChange={(e) => setSelectedEstimateId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-dpwh-blue-500"
+            {versionNotFound && !isManualWorkspace && (
+              <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-800">Selected version was not found.</p>
+                <p className="text-xs text-amber-700 mt-1">Return to Program of Works list and choose an existing version.</p>
+                <Link
+                  href={`/projects/${projectId}?tab=estimates`}
+                  className="inline-flex mt-3 text-xs font-semibold text-amber-800 hover:text-amber-900"
                 >
-                  {estimates.map((est) => (
-                    <option key={est._id} value={est._id}>
-                      {est.name || est.estimateNumber} - {formatCurrency(est.costSummary?.grandTotal || 0)}
-                      {est.status === 'approved' && ' (Approved)'}
-                    </option>
-                  ))}
-                </select>
+                  Back to Program of Works List
+                </Link>
               </div>
             )}
 
@@ -872,7 +1081,7 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-dpwh-blue-600 mb-4"></div>
-                  <p className="text-gray-600">Loading manual BOQ entries...</p>
+                  <p className="text-gray-600">Loading BOQ entries...</p>
                 </div>
               </div>
             ) : !isManualWorkspace && (loadingEstimate || !selectedEstimate) && activeSection !== 'manual-boq' ? (
@@ -886,10 +1095,10 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
               <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center">
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Start building your manual Program of Works</h3>
                 <p className="text-gray-600">
-                  Use the Manual BOQ manager above to add pay items from DUPA templates.
+                  Open BOQ Entry from the sidebar to add pay items from DUPA templates.
                 </p>
               </div>
-            ) : activeSection !== 'manual-boq' && !activeEstimate ? null : (
+            ) : !activeEstimate && !['manual-boq', 'dupa-analysis', 'project-details', 'reports'].includes(activeSection) ? null : (
               <div className="space-y-6">
                 {activeSection === 'manual-boq' && (
                   <ManualPowManager
@@ -911,62 +1120,30 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
 
                 {activeSection === 'overview' && (
                   <div className="space-y-6">
-                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-2">Projects / Budgeting / Itemized Breakdown</p>
-                          <h2 className="text-2xl font-bold text-gray-900">Project Breakdown Structure</h2>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Comprehensive cost analysis for submitted Program of Works.
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={itemSearch}
-                              onChange={(e) => setItemSearch(e.target.value)}
-                              placeholder="Search items..."
-                              className="w-56 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-dpwh-blue-500"
-                            />
-                          </div>
-                          <select
-                            value={partFilter}
-                            onChange={(e) => setPartFilter(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-                          >
-                            <option value="all">All Parts</option>
-                            {worksParts.map((part) => (
-                              <option key={part.part} value={part.part}>{part.part}</option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={handleExportPDF}
-                            disabled={!reportLink}
-                            className="inline-flex items-center gap-2 bg-dpwh-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-dpwh-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Export Data
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
                     <ProgramOfWorksKpiRow
                       totalProjectCost={activeEstimate?.costSummary?.grandTotal || 0}
                       directCost={activeEstimate?.costSummary?.totalDirectCost || 0}
                       activeComponents={itemizedGroups.groups.length}
                     />
 
-                    <ProgramOfWorksItemizedTable
-                      groups={itemizedGroups.groups}
-                      grandTotal={itemizedGroups.total}
-                      editable
-                      onSaveAdjustment={savePowAdjustment}
-                      onClearAdjustment={clearPowAdjustment}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection('itemized-breakdown')}
+                        className="text-left rounded-lg border border-blue-200 bg-blue-50 p-4 hover:bg-blue-100 transition"
+                      >
+                        <p className="text-sm font-semibold text-blue-900">Open Itemized Cost Breakdown</p>
+                        <p className="text-xs text-blue-700 mt-1">Review, search, and adjust line-item costs.</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection('dupa-analysis')}
+                        className="text-left rounded-lg border border-emerald-200 bg-emerald-50 p-4 hover:bg-emerald-100 transition"
+                      >
+                        <p className="text-sm font-semibold text-emerald-900">Open Detailed Unit Price Analysis</p>
+                        <p className="text-xs text-emerald-700 mt-1">View DUPA sheets in print-style screen format.</p>
+                      </button>
+                    </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <ProgramOfWorksApprovalStatus
@@ -978,6 +1155,48 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
                       />
                       <ProgramOfWorksRevisionHistory entries={[]} />
                     </div>
+                  </div>
+                )}
+
+                {activeSection === 'itemized-breakdown' && (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">Projects / Budgeting / Itemized Breakdown</p>
+                          <h2 className="text-2xl font-bold text-gray-900">Itemized Cost Breakdown</h2>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Search and adjust line-item costs from the active Program of Works version.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={itemSearch}
+                              onChange={(e) => setItemSearch(e.target.value)}
+                              placeholder="Search pay item or description"
+                              className="w-64 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-dpwh-blue-500"
+                            />
+                          </div>
+                          <button
+                            onClick={handleExportPDF}
+                            disabled={!reportLink}
+                            className="inline-flex items-center gap-2 bg-dpwh-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-dpwh-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Open Report
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <ProgramOfWorksItemizedTable
+                      groups={itemizedGroups.groups}
+                      grandTotal={itemizedGroups.total}
+                      editable
+                      onSaveAdjustment={savePowAdjustment}
+                      onClearAdjustment={clearPowAdjustment}
+                    />
                   </div>
                 )}
 
@@ -1012,6 +1231,33 @@ const buildManualEstimate = (items: ProjectBoqItem[]) => {
                     parts={worksParts}
                     onPartClick={handlePartClick}
                   />
+                )}
+
+                {activeSection === 'dupa-analysis' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-base font-semibold text-gray-900">Detailed Unit Price Analysis</h2>
+                      <span className="text-xs text-gray-500">Compact screen view</span>
+                    </div>
+                    {dupaLoading ? (
+                      <div className="bg-white rounded-lg border border-gray-200 p-6 text-sm text-gray-600">Loading DUPA analysis...</div>
+                    ) : dupaError ? (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-sm text-red-700">{dupaError}</div>
+                    ) : dupaData ? (
+                      <DupaTab
+                        data={dupaData}
+                        formatCurrency={(value) => `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        formatNumber={(value) => value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        selectedPrintKey={selectedDupaPrintKey}
+                        onSelectedPrintKeyChange={setSelectedDupaPrintKey}
+                        adjustedKeys={Object.keys(dupaAdjustments)}
+                        onSaveDupaAdjustment={saveDupaAdjustment}
+                        onResetDupaAdjustment={resetDupaAdjustment}
+                      />
+                    ) : (
+                      <div className="bg-white rounded-lg border border-gray-200 p-6 text-sm text-gray-600">No DUPA data available for this project.</div>
+                    )}
+                  </div>
                 )}
 
                 {activeSection === 'equipment' && (

@@ -59,11 +59,15 @@ export async function GET(request: Request) {
     await dbConnect();
 
     const { searchParams } = new URL(request.url);
-    
-    // Build filter query
-    const filter: any = {};
-    
-    // Search by pay item number or description
+
+    const view = searchParams.get('view') === 'all' ? 'all' : 'common';
+    const maxLimit = view === 'all' ? 5000 : 200;
+    const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10), 1), maxLimit);
+    const skip = (page - 1) * limit;
+
+    const filter: Record<string, any> = {};
+
     const search = searchParams.get('search');
     if (search) {
       filter.$or = [
@@ -71,38 +75,103 @@ export async function GET(request: Request) {
         { payItemDescription: { $regex: search, $options: 'i' } },
       ];
     }
-    
-    // Filter by part
+
     const part = searchParams.get('part');
     if (part) {
       filter.part = part;
     }
-    
-    // Filter by category
+
     const category = searchParams.get('category');
     if (category) {
       filter.category = category;
     }
-    
-    // Filter by active status
-    const isActive = searchParams.get('isActive');
-    if (isActive !== null) {
-      filter.isActive = isActive === 'true';
+
+    const isPinnedCommon = searchParams.get('isPinnedCommon');
+    if (isPinnedCommon !== null) {
+      filter.isPinnedCommon = isPinnedCommon === 'true';
     }
     
-    // Sorting
-    const sortBy = searchParams.get('sortBy') || 'payItemNumber';
-    const order = searchParams.get('order') === 'desc' ? -1 : 1;
-    const sort: any = { [sortBy]: order };
+    const isActive = searchParams.get('isActive');
+    const status = searchParams.get('status');
+    let hasExplicitStatusFilter = false;
 
-    const templates = await DUPATemplate.find(filter)
+    if (isActive !== null) {
+      filter.isActive = isActive === 'true';
+      hasExplicitStatusFilter = true;
+    } else if (status) {
+      if (status.toLowerCase() === 'active') {
+        filter.isActive = true;
+        hasExplicitStatusFilter = true;
+      }
+      if (status.toLowerCase() === 'inactive') {
+        filter.isActive = false;
+        hasExplicitStatusFilter = true;
+      }
+    }
+
+    const sortBy = searchParams.get('sortBy');
+    const order = searchParams.get('order') === 'desc' ? -1 : 1;
+    let sort: Record<string, 1 | -1>;
+    if (sortBy) {
+      sort = { [sortBy]: order as 1 | -1 };
+    } else if (view === 'all' && !search) {
+      sort = { part: 1, payItemNumber: 1 };
+    } else {
+      sort = { payItemNumber: 1 };
+    }
+
+    if (view === 'common') {
+      filter.isPinnedCommon = true;
+    }
+
+    const hasSearch = Boolean(search?.trim());
+    const projection = {
+      payItemNumber: 1,
+      payItemDescription: 1,
+      unitOfMeasurement: 1,
+      outputPerHour: 1,
+      part: 1,
+      category: 1,
+      laborTemplate: 1,
+      equipmentTemplate: 1,
+      materialTemplate: 1,
+      ocmPercentage: 1,
+      cpPercentage: 1,
+      vatPercentage: 1,
+      isActive: 1,
+      isPinnedCommon: 1,
+      updatedAt: 1,
+    };
+
+    const listFilter = { ...filter };
+
+    if (hasSearch && !hasExplicitStatusFilter) {
+      listFilter.isActive = true;
+    }
+
+    const templates = await DUPATemplate.find(listFilter)
+      .select(projection)
       .sort(sort)
+      .skip(skip)
+      .limit(limit)
       .lean();
+    const total = await DUPATemplate.countDocuments(listFilter);
 
     return NextResponse.json({
       success: true,
       data: templates,
       count: templates.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+        hasMore: skip + templates.length < total,
+      },
+      meta: {
+        view,
+        modeUsed: view,
+      },
     });
   } catch (error: any) {
     console.error('Error fetching DUPA templates:', error);

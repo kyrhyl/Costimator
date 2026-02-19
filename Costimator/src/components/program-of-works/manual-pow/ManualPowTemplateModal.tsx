@@ -13,10 +13,12 @@ interface ManualPowTemplateModalProps {
   selectedTemplateIds: Record<string, boolean>;
   quickQuantities: Record<string, number>;
   stagedTemplates: StagedTemplate[];
+  loadCommonEnabled: boolean;
   error: string | null;
   bulkError: string | null;
   bulkSaving: boolean;
   onClose: () => void;
+  onLoadCommon: () => void;
   onTemplateSearchChange: (value: string) => void;
   onPartFilterChange: (value: string) => void;
   onToggleTemplateSelection: (templateId: string) => void;
@@ -42,10 +44,12 @@ export default function ManualPowTemplateModal({
   selectedTemplateIds,
   quickQuantities,
   stagedTemplates,
+  loadCommonEnabled,
   error,
   bulkError,
   bulkSaving,
   onClose,
+  onLoadCommon,
   onTemplateSearchChange,
   onPartFilterChange,
   onToggleTemplateSelection,
@@ -65,7 +69,7 @@ export default function ManualPowTemplateModal({
         <div className="flex items-center justify-between border-b px-6 py-4">
           <div>
             <p className="text-base font-semibold text-gray-900">Add Manual BOQ Item</p>
-            <p className="text-xs text-gray-500">Search DUPA templates and set the quantity to add it to this project.</p>
+            <p className="text-xs text-gray-500">Shows common DUPA templates by default; searching expands to all active templates.</p>
           </div>
           <button className="text-gray-500 hover:text-gray-700" onClick={onClose}>
             ✕
@@ -110,11 +114,26 @@ export default function ManualPowTemplateModal({
             </div>
           </div>
 
+          {!loadCommonEnabled && !templateSearch.trim() && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-center justify-between gap-3">
+              <span>No templates are loaded by default. Search, or load common templates.</span>
+              <button
+                type="button"
+                onClick={onLoadCommon}
+                className="rounded border border-amber-300 px-2 py-1 font-medium hover:bg-amber-100"
+              >
+                Load Common Templates
+              </button>
+            </div>
+          )}
+
           <div className="max-h-60 overflow-y-auto rounded-md border border-gray-200">
             {templateError ? (
               <p className="px-4 py-3 text-sm text-red-600">{templateError}</p>
             ) : loadingTemplates ? (
               <p className="px-4 py-3 text-sm text-gray-500">Loading templates...</p>
+            ) : !loadCommonEnabled && !templateSearch.trim() ? (
+              <p className="px-4 py-3 text-sm text-gray-500">No templates loaded yet.</p>
             ) : templates.length === 0 ? (
               <p className="px-4 py-3 text-sm text-gray-500">
                 No templates found {partFilter !== 'all' ? `for ${partFilter}` : ''}.
@@ -133,6 +152,11 @@ export default function ManualPowTemplateModal({
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">
                           {tpl.payItemNumber} · {tpl.payItemDescription}
+                          {tpl.isPinnedCommon && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                              ★ Favorite
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-gray-500">
                           Unit: {tpl.unitOfMeasurement} {tpl.part ? `• ${tpl.part}` : ''}
