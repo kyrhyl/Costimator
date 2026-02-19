@@ -6,6 +6,7 @@ import { z } from 'zod';
 import mongoose from 'mongoose';
 import { getSessionUser, hasRequiredRole } from '@/lib/auth/session';
 import { PROJECT_READ_ROLES, PROJECT_WRITE_ROLES, PROJECT_DELETE_ROLES } from '@/lib/auth/roles';
+import { buildAuditActor, diffAuditFields, logAuditEvent } from '@/lib/audit/logger';
 
 const ProjectUpdateSchema = z.object({
   projectName: z.string().min(1).optional(),
@@ -201,6 +202,15 @@ export async function PATCH(
       }
     }
 
+    const beforeProject = await Project.findById(id).lean();
+
+    if (!beforeProject) {
+      return NextResponse.json(
+        { success: false, error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
     const project = await Project.findByIdAndUpdate(
       id,
       validatedData,
@@ -213,6 +223,20 @@ export async function PATCH(
         { status: 404 }
       );
     }
+
+    const afterProject = project.toObject();
+    await logAuditEvent({
+      actor: buildAuditActor(user),
+      action: 'update',
+      entityType: 'project',
+      entityId: id,
+      projectId: id,
+      summary: `Updated project ${afterProject.projectName || id}`,
+      request: req,
+      changes: {
+        fields: diffAuditFields(beforeProject, afterProject),
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -279,7 +303,7 @@ export async function DELETE(
       );
     }
 
-    const project = await Project.findByIdAndDelete(id);
+    const project = await Project.findById(id).lean();
 
     if (!project) {
       return NextResponse.json(
@@ -287,6 +311,21 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    await Project.findByIdAndDelete(id);
+
+    await logAuditEvent({
+      actor: buildAuditActor(user),
+      action: 'delete',
+      entityType: 'project',
+      entityId: id,
+      projectId: id,
+      summary: `Deleted project ${(project as any).projectName || id}`,
+      request: req,
+      changes: {
+        before: project,
+      },
+    });
 
     return NextResponse.json({
       success: true,

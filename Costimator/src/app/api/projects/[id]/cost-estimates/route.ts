@@ -81,6 +81,7 @@ export async function POST(
 
     if (body.boqSource === 'manual') {
       console.log('[Cost Estimate] Configuring manual Program of Works');
+      await ProjectBOQ.deleteMany({ projectId });
       project.powMode = 'manual';
       project.manualPowConfig = {
         laborLocation: body.location,
@@ -246,6 +247,11 @@ export async function POST(
     const estimateNumber = await CostEstimate.generateEstimateNumber();
     console.log('[Cost Estimate] Generated estimate number:', estimateNumber);
     
+    const boqSourceRef =
+      body.boqSource === 'takeoffVersion' && body.takeoffVersionId
+        ? new mongoose.Types.ObjectId(body.takeoffVersionId)
+        : null;
+
     // Calculate estimate lines from BOQ
     console.log('[Cost Estimate] Starting calculation...');
     console.log('[Cost Estimate] Calculation config:', {
@@ -281,6 +287,9 @@ export async function POST(
       estimateName: body.name || body.estimateName || `Estimate ${estimateNumber}`,
       estimateType: body.estimateType || 'preliminary',
       description: body.description,
+      boqSource: body.boqSource,
+      boqVersion: body.boqSource === 'boqDatabase' && typeof body.boqVersion === 'number' ? body.boqVersion : undefined,
+      boqSourceRef,
       
       // Pricing configuration
       location: body.location,

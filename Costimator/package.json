@@ -14,7 +14,8 @@
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
     "seed": "node --import tsx scripts/seed.ts",
-    "seed:pay-items": "node scripts/import-pay-items.mjs"
+    "seed:pay-items": "node scripts/import-pay-items.mjs",
+    "backfill:estimate-source": "node --import tsx scripts/backfill-cost-estimate-source.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

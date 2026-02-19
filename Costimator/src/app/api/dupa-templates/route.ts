@@ -10,6 +10,8 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import DUPATemplate from '@/models/DUPATemplate';
 import { z } from 'zod';
+import { getSessionUser } from '@/lib/auth/session';
+import { buildAuditActor, logAuditEvent } from '@/lib/audit/logger';
 
 // Zod schemas for validation
 const LaborTemplateSchema = z.object({
@@ -117,6 +119,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const user = await getSessionUser();
     await dbConnect();
 
     const body = await request.json();
@@ -162,6 +165,25 @@ export async function POST(request: Request) {
     
     // Create templates
     const created = await DUPATemplate.insertMany(validatedTemplates);
+
+    await logAuditEvent({
+      actor: buildAuditActor(user),
+      action: isArray ? 'create_bulk' : 'create',
+      entityType: 'dupa_template',
+      entityId: isArray ? '' : String(created[0]?._id || ''),
+      summary: isArray
+        ? `Created ${created.length} DUPA templates`
+        : `Created DUPA template ${created[0]?.payItemNumber || ''}`,
+      request,
+      changes: {
+        after: isArray
+          ? created.map(item => ({ _id: item._id, payItemNumber: item.payItemNumber }))
+          : created[0]?.toObject?.() || created[0],
+      },
+      metadata: {
+        count: created.length,
+      },
+    });
     
     return NextResponse.json(
       {

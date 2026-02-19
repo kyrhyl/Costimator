@@ -1,6 +1,6 @@
 @page landscapePage {
   size: A4 landscape;
-  margin: 5mm 0mm 5mm 0mm;
+  margin: 0;
   @top-left { content: none; }
   @top-center { content: none; }
   @top-right { content: none; }
@@ -11,7 +11,7 @@
 
 @page portraitPage {
   size: A4 portrait;
-  margin: 5mm 0mm 5mm 0mm;
+  margin: 0;
   @top-left { content: none; }
   @top-center { content: none; }
   @top-right { content: none; }
@@ -68,6 +68,11 @@
   color: #999;
 }
 
+:global(.itemized-table) {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
 @media print {
   :global(*) {
     -webkit-print-color-adjust: exact !important;
@@ -110,14 +115,27 @@
     box-shadow: none;
     margin: 0;
     width: auto !important;
-    min-height: auto;
+    min-height: auto !important;
+    height: auto !important;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
-  :global(.a4-page + .a4-page) {
-    break-before: page;
-    page-break-before: always;
+  :global(.a4-page[data-orientation='landscape']),
+  :global(.a4-page[data-orientation='portrait']) {
+    width: auto !important;
+    min-height: auto !important;
+    height: auto !important;
+  }
+
+  :global(.a4-page) {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  :global(.a4-page:last-child) {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   :global(.a4-page-landscape) {
@@ -137,7 +155,6 @@
   }
 
   :global(.itemized-table) {
-    border-collapse: collapse;
     width: 100%;
     table-layout: fixed;
   }

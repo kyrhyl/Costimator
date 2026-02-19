@@ -4,6 +4,7 @@ import Project from '@/models/Project';
 import { z } from 'zod';
 import { getSessionUser, hasRequiredRole } from '@/lib/auth/session';
 import { PROJECT_READ_ROLES, PROJECT_WRITE_ROLES } from '@/lib/auth/roles';
+import { buildAuditActor, logAuditEvent } from '@/lib/audit/logger';
 
 const ProjectSchema = z.object({
   projectName: z.string().min(1, 'Project name is required'),
@@ -147,6 +148,19 @@ export async function POST(req: NextRequest) {
 
     // Create project
     const project = await Project.create(validatedData);
+
+    await logAuditEvent({
+      actor: buildAuditActor(user),
+      action: 'create',
+      entityType: 'project',
+      entityId: String(project._id),
+      projectId: String(project._id),
+      summary: `Created project ${project.projectName}`,
+      request: req,
+      changes: {
+        after: project.toObject(),
+      },
+    });
 
     return NextResponse.json(
       {

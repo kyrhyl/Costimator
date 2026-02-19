@@ -81,6 +81,8 @@ export async function POST(
     const costEstimate = new CostEstimate({
       projectId: project._id,
       takeoffVersionId: versionId,
+      boqSource: 'takeoffVersion',
+      boqSourceRef: takeoffVersion._id,
       estimateNumber,
       estimateName: body.estimateName || `${cmpdVersion} - ${district}`,
       estimateType: body.estimateType || 'preliminary',

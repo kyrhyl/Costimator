@@ -47,7 +47,7 @@ export function Form1311Page({ header, itemizedParts, formatCurrency, formatNumb
             <th colSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>DIRECT COST TOTAL</th>
             <th colSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>DIRECT COST UNIT COST</th>
             <th colSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>TOTAL UNIT COST DIRECT + INDIRECT</th>
-            <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>% DIRECT COST</th>
+            <th rowSpan={2} className="px-1 py-2 text-center font-normal" style={{ border: '1px solid #000' }}>% PROJECT COST</th>
           </tr>
           <tr className="bg-[#4a4a4a] text-white">
             <th className="px-1 py-1 text-center font-normal" style={{ border: '1px solid #000' }}>AS SUBMITTED</th>

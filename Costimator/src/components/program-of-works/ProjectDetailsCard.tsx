@@ -7,7 +7,11 @@ interface ProjectDetailsCardProps {
   implementingOffice: string;
   location: string;
   district?: string;
-  fundSource?: string;
+  fundSource?: {
+    projectId?: string;
+    fundingAgreement?: string;
+    fundingOrganization?: string;
+  };
   workableDays?: number;
   unworkableDays?: number;
   totalDuration?: number;
@@ -87,8 +91,16 @@ export default function ProjectDetailsCard({
               <p className="text-sm font-medium text-gray-900">{district || 'N/A'}</p>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Fund Source</label>
-              <p className="text-sm font-medium text-gray-900">{fundSource || 'N/A'}</p>
+              <label className="block text-xs text-gray-500 mb-1">Funding Project ID</label>
+              <p className="text-sm font-medium text-gray-900">{fundSource?.projectId || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Funding Agreement</label>
+              <p className="text-sm font-medium text-gray-900">{fundSource?.fundingAgreement || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Funding Organization</label>
+              <p className="text-sm font-medium text-gray-900">{fundSource?.fundingOrganization || 'N/A'}</p>
             </div>
           </div>
         )}

@@ -10,17 +10,18 @@ import TakeoffViewer from '@/components/takeoff/TakeoffViewer';
 import BOQViewer from '@/components/takeoff/BOQViewer';
 import CalcRunList from '@/components/takeoff/CalcRunList';
 import ProgramOfWorksTab from './components/ProgramOfWorksTab';
-import ProjectDetailsCard from '@/components/program-of-works/ProjectDetailsCard';
 
 interface Project {
   _id: string;
   projectName: string;
   projectLocation: string;
   district: string;
+  cmpdVersion?: string;
   implementingOffice: string;
   appropriation: number;
   contractId?: string;
   projectType: string;
+  powMode?: 'takeoff' | 'manual';
   status: string;
   startDate?: string;
   endDate?: string;
@@ -104,6 +105,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     fetchProject();
     fetchVersionSummary();
   }, [id]);
+
+  useEffect(() => {
+    const syncTabFromUrl = () => {
+      const tabParam = new URLSearchParams(window.location.search).get('tab');
+      if (tabParam === 'overview' || tabParam === 'takeoff' || tabParam === 'estimates') {
+        setActiveTab(tabParam);
+      }
+    };
+
+    syncTabFromUrl();
+    window.addEventListener('popstate', syncTabFromUrl);
+    return () => window.removeEventListener('popstate', syncTabFromUrl);
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'estimates') {
@@ -343,6 +357,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const formatDate = (value?: string) => (value ? new Date(value).toLocaleDateString() : 'N/A');
+  const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleString() : 'N/A');
+  const formatCurrency = (value?: number) =>
+    typeof value === 'number' ? `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 2 })}` : 'N/A';
+  const formatNumber = (value?: number) => (typeof value === 'number' ? value.toLocaleString('en-PH') : 'N/A');
+  const formatCoordinate = (value?: number) => (typeof value === 'number' ? value.toFixed(6) : 'N/A');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -434,239 +455,274 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <>
-          {/* Project Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Project Information</h2>
-          <div className="space-y-3">
-            <div>
-              <span className="text-gray-600 text-sm">Contract ID:</span>
-              <p className="font-medium">{project.contractId || 'N/A'}</p>
-            </div>
-            <div>
-              <span className="text-gray-600 text-sm">Project Type:</span>
-              <p className="font-medium">{project.projectType}</p>
-            </div>
-            <div>
-              <span className="text-gray-600 text-sm">Status:</span>
-              <p>
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                    project.status === 'Completed'
-                      ? 'bg-green-100 text-green-800'
-                      : project.status === 'Ongoing'
-                      ? 'bg-blue-100 text-blue-800'
-                      : project.status === 'Approved'
-                      ? 'bg-purple-100 text-purple-800'
-                      : project.status === 'Cancelled'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {project.status}
-                </span>
-              </p>
-            </div>
-            <div>
-              <span className="text-gray-600 text-sm">District:</span>
-              <p className="font-medium">{project.district}</p>
-            </div>
-            <div>
-              <span className="text-gray-600 text-sm">Implementing Office:</span>
-              <p className="font-medium">{project.implementingOffice}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Budget & Timeline</h2>
-          <div className="space-y-3">
-            <div>
-              <span className="text-gray-600 text-sm">Appropriation:</span>
-              <p className="font-medium text-lg">
-                ₱{project.appropriation.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div>
-              <span className="text-gray-600 text-sm">Start Date:</span>
-              <p className="font-medium">
-                {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
-              </p>
-            </div>
-            <div>
-              <span className="text-gray-600 text-sm">End Date:</span>
-              <p className="font-medium">
-                {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <ProjectDetailsCard
-        projectName={project.projectName}
-        implementingOffice={project.implementingOffice}
-        location={project.projectLocation}
-        district={project.district}
-      />
-
-      {/* Hauling Configuration */}
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Hauling Configuration</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <span className="text-gray-600 text-sm">Hauling Cost per Km:</span>
-            <p className="font-medium">
-              ₱{project.haulingCostPerKm.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-          <div>
-            <span className="text-gray-600 text-sm">Distance from Office:</span>
-            <p className="font-medium">{project.distanceFromOffice.toFixed(2)} km</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Description */}
-      {project.description && (
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Description</h2>
-          <p className="text-gray-700 whitespace-pre-wrap">{project.description}</p>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-100">
-        <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Link
-            href={`/takeoff/${id}`}
-            className="block bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
-          >
-            <h3 className="font-semibold text-blue-600 mb-2">📐 Quantity Takeoff</h3>
-            <p className="text-sm text-gray-600">
-              Access the takeoff workspace to model elements and generate quantities
-            </p>
-          </Link>
-          <Link
-            href={`/projects/${id}/boq`}
-            className="block bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
-          >
-            <h3 className="font-semibold text-blue-600 mb-2">📋 Bill of Quantities</h3>
-            <p className="text-sm text-gray-600">
-              Manage BOQ items and view detailed cost breakdowns
-            </p>
-          </Link>
-          <Link
-            href={`/projects/${id}/program-of-works`}
-            className="block bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
-          >
-            <h3 className="font-semibold text-blue-600 mb-2">📊 Program of Works</h3>
-            <p className="text-sm text-gray-600">
-              Open the Program of Works workspace for manual or takeoff-driven entries
-            </p>
-          </Link>
-          <div className="block bg-white p-4 rounded-lg shadow opacity-50">
-            <h3 className="font-semibold text-gray-400 mb-2">📊 Reports</h3>
-            <p className="text-sm text-gray-400">
-              Generate project reports (Coming soon)
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Version Summary */}
-      {versionSummary && (versionSummary.totalVersions > 0 || versionSummary.totalEstimates > 0) && (
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Version Management Summary</h2>
-            <Link
-              href={`/takeoff/${id}#versions`}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Manage Versions →
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Active Takeoff Version */}
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Active Takeoff Version
-              </h3>
-              {versionSummary.activeTakeoffVersion ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Version {versionSummary.activeTakeoffVersion.versionNumber}</span>
-                    <VersionStatusBadge status={versionSummary.activeTakeoffVersion.status as any} />
-                  </div>
-                  <div className="text-base font-semibold text-gray-900">
-                    {versionSummary.activeTakeoffVersion.versionLabel}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {versionSummary.activeTakeoffVersion.boqLineCount} BOQ items
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Created: {new Date(versionSummary.activeTakeoffVersion.createdAt).toLocaleDateString()}
-                  </div>
-                  <div className="text-xs text-blue-600 mt-2">
-                    Total versions: {versionSummary.totalVersions}
-                  </div>
+        <div className="space-y-4">
+          <div className="rounded-lg border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-gray-500">Status</div>
+                <div className="mt-1">
+                  <span
+                    className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${
+                      project.status === 'Completed'
+                        ? 'bg-green-100 text-green-800'
+                        : project.status === 'Ongoing'
+                        ? 'bg-blue-100 text-blue-800'
+                        : project.status === 'Approved'
+                        ? 'bg-purple-100 text-purple-800'
+                        : project.status === 'Cancelled'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {project.status}
+                  </span>
                 </div>
-              ) : (
-                <div className="text-sm text-gray-500 italic">
-                  No takeoff versions created yet
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-gray-500">Appropriation</div>
+                <div className="mt-1 font-semibold text-gray-900">{formatCurrency(project.appropriation)}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-gray-500">Timeline</div>
+                <div className="mt-1 text-gray-900">
+                  {formatDate(project.startDate)} - {formatDate(project.endDate)}
                 </div>
-              )}
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-gray-500">Last Updated</div>
+                <div className="mt-1 text-gray-900">{formatDate(project.updatedAt)}</div>
+              </div>
             </div>
-
-            {/* Active Program of Works */}
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Active Program of Works
-              </h3>
-              {versionSummary.activeCostEstimate ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">{versionSummary.activeCostEstimate.estimateNumber}</span>
-                    <VersionStatusBadge status={versionSummary.activeCostEstimate.status as any} />
-                  </div>
-                  <div className="text-lg font-bold text-green-600">
-                    ₱{versionSummary.activeCostEstimate.grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    CMPD: {versionSummary.activeCostEstimate.cmpdVersion}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Created: {new Date(versionSummary.activeCostEstimate.createdAt).toLocaleDateString()}
-                  </div>
-                  <div className="text-xs text-blue-600 mt-2">
-                    Total estimates: {versionSummary.totalEstimates}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 italic">
-                  No program of works generated yet
-                </div>
-              )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href={`/takeoff/${id}`} className="rounded-md bg-white px-3 py-1.5 text-sm text-blue-700 border border-blue-200 hover:bg-blue-50">
+                Quantity Takeoff
+              </Link>
+              <Link href={`/projects/${id}/boq`} className="rounded-md bg-white px-3 py-1.5 text-sm text-blue-700 border border-blue-200 hover:bg-blue-50">
+                Bill of Quantities
+              </Link>
+              <Link href={`/projects/${id}/program-of-works`} className="rounded-md bg-white px-3 py-1.5 text-sm text-blue-700 border border-blue-200 hover:bg-blue-50">
+                Program of Works
+              </Link>
             </div>
           </div>
+
+          <div className="bg-white shadow rounded-lg p-4">
+            <h2 className="text-base font-semibold mb-3">Project Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Contract ID</span>
+                <span className="font-medium text-gray-900 text-right">{project.contractId || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Project Type</span>
+                <span className="font-medium text-gray-900 text-right">{project.projectType || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Program of Works Mode</span>
+                <span className="font-medium text-gray-900 text-right capitalize">{project.powMode || 'takeoff'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Location</span>
+                <span className="font-medium text-gray-900 text-right">{project.projectLocation}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">CMPD Version</span>
+                <span className="font-medium text-gray-900 text-right">{project.cmpdVersion || 'Latest'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">District</span>
+                <span className="font-medium text-gray-900 text-right">{project.district}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Implementing Office</span>
+                <span className="font-medium text-gray-900 text-right">{project.implementingOffice}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Distance from Office</span>
+                <span className="font-medium text-gray-900 text-right">{project.distanceFromOffice.toFixed(2)} km</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Created</span>
+                <span className="font-medium text-gray-900 text-right">{formatDate(project.createdAt)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Last Updated</span>
+                <span className="font-medium text-gray-900 text-right">{formatDate(project.updatedAt)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4">
+            <h2 className="text-base font-semibold mb-3">DPWH Project Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1 md:col-span-2 xl:col-span-3">
+                <span className="text-gray-500">Address</span>
+                <span className="font-medium text-gray-900 text-right">{project.address || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Target Start Date</span>
+                <span className="font-medium text-gray-900 text-right">{formatDate(project.targetStartDate)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Target Completion Date</span>
+                <span className="font-medium text-gray-900 text-right">{formatDate(project.targetCompletionDate)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Contract Duration (CD)</span>
+                <span className="font-medium text-gray-900 text-right">{formatNumber(project.contractDurationCD)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Workable Days</span>
+                <span className="font-medium text-gray-900 text-right">{formatNumber(project.workingDays)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Unworkable Sundays</span>
+                <span className="font-medium text-gray-900 text-right">{formatNumber(project.unworkableDays?.sundays)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Unworkable Holidays</span>
+                <span className="font-medium text-gray-900 text-right">{formatNumber(project.unworkableDays?.holidays)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Unworkable Rainy Days</span>
+                <span className="font-medium text-gray-900 text-right">{formatNumber(project.unworkableDays?.rainyDays)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4">
+            <h2 className="text-base font-semibold mb-3">Fund Source</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Project ID</span>
+                <span className="font-medium text-gray-900 text-right">{project.fundSource?.projectId || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Funding Agreement</span>
+                <span className="font-medium text-gray-900 text-right">{project.fundSource?.fundingAgreement || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Funding Organization</span>
+                <span className="font-medium text-gray-900 text-right">{project.fundSource?.fundingOrganization || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4">
+            <h2 className="text-base font-semibold mb-3">Physical Target</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Infra Type</span>
+                <span className="font-medium text-gray-900 text-right">{project.physicalTarget?.infraType || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Project Component ID</span>
+                <span className="font-medium text-gray-900 text-right">{project.physicalTarget?.projectComponentId || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Target Amount</span>
+                <span className="font-medium text-gray-900 text-right">{formatNumber(project.physicalTarget?.targetAmount)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Unit of Measure</span>
+                <span className="font-medium text-gray-900 text-right">{project.physicalTarget?.unitOfMeasure || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4">
+            <h2 className="text-base font-semibold mb-3">Financial & Component Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Component ID</span>
+                <span className="font-medium text-gray-900 text-right">{project.projectComponent?.componentId || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Infra ID</span>
+                <span className="font-medium text-gray-900 text-right">{project.projectComponent?.infraId || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Latitude</span>
+                <span className="font-medium text-gray-900 text-right">{formatCoordinate(project.projectComponent?.coordinates?.latitude)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Longitude</span>
+                <span className="font-medium text-gray-900 text-right">{formatCoordinate(project.projectComponent?.coordinates?.longitude)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Allotted Amount</span>
+                <span className="font-medium text-gray-900 text-right">{formatCurrency(project.allotedAmount)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Estimated Component Cost</span>
+                <span className="font-medium text-gray-900 text-right">{formatCurrency(project.estimatedComponentCost)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Created At</span>
+                <span className="font-medium text-gray-900 text-right">{formatDateTime(project.createdAt)}</span>
+              </div>
+              <div className="flex justify-between gap-2 border-b border-gray-100 py-1">
+                <span className="text-gray-500">Updated At</span>
+                <span className="font-medium text-gray-900 text-right">{formatDateTime(project.updatedAt)}</span>
+              </div>
+            </div>
+          </div>
+
+          {versionSummary && (versionSummary.totalVersions > 0 || versionSummary.totalEstimates > 0) && (
+            <details className="bg-white shadow rounded-lg p-4" open>
+              <summary className="cursor-pointer text-base font-semibold text-gray-900 flex items-center justify-between">
+                <span>Version Summary</span>
+              </summary>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="rounded-md border border-gray-200 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-700">Active Takeoff</span>
+                    {versionSummary.activeTakeoffVersion && (
+                      <VersionStatusBadge status={versionSummary.activeTakeoffVersion.status as any} />
+                    )}
+                  </div>
+                  {versionSummary.activeTakeoffVersion ? (
+                    <>
+                      <div className="font-medium text-gray-900">V{versionSummary.activeTakeoffVersion.versionNumber} - {versionSummary.activeTakeoffVersion.versionLabel}</div>
+                      <div className="text-xs text-gray-500 mt-1">{versionSummary.activeTakeoffVersion.boqLineCount} BOQ items</div>
+                      <div className="text-xs text-gray-500">Created {new Date(versionSummary.activeTakeoffVersion.createdAt).toLocaleDateString()}</div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-gray-500">No takeoff versions yet</div>
+                  )}
+                </div>
+                <div className="rounded-md border border-gray-200 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-700">Active Program of Works</span>
+                    {versionSummary.activeCostEstimate && (
+                      <VersionStatusBadge status={versionSummary.activeCostEstimate.status as any} />
+                    )}
+                  </div>
+                  {versionSummary.activeCostEstimate ? (
+                    <>
+                      <div className="font-medium text-gray-900">{versionSummary.activeCostEstimate.estimateNumber}</div>
+                      <div className="text-sm font-semibold text-green-700 mt-1">₱{versionSummary.activeCostEstimate.grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</div>
+                      <div className="text-xs text-gray-500">CMPD {versionSummary.activeCostEstimate.cmpdVersion}</div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-gray-500">No program of works yet</div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+                <span>Total versions: {versionSummary.totalVersions} • Total estimates: {versionSummary.totalEstimates}</span>
+                <Link href={`/takeoff/${id}#versions`} className="text-blue-600 hover:text-blue-800 font-medium">Manage Versions</Link>
+              </div>
+            </details>
+          )}
+
+          {project.description && (
+            <details className="bg-white shadow rounded-lg p-4">
+              <summary className="cursor-pointer text-base font-semibold text-gray-900">Description</summary>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap mt-3">{project.description}</p>
+            </details>
+          )}
         </div>
-      )}
-
-          {/* Metadata */}
-          <div className="mt-6 text-sm text-gray-500">
-            <p>Created: {new Date(project.createdAt).toLocaleString()}</p>
-            <p>Last Updated: {new Date(project.updatedAt).toLocaleString()}</p>
-          </div>
-        </>
       )}
 
       {activeTab === 'takeoff' && (
@@ -849,9 +905,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             setShowCreateEstimateModal(false);
             setSelectedTakeoffVersionId(null);
             if (result?.manualMode) {
-              router.push(`/projects/${id}/program-of-works?mode=manual-setup`);
+              router.push(`/projects/${id}/program-of-works?section=manual-boq`);
             } else if (result?.estimateId) {
-              router.push(`/cost-estimates/${result.estimateId}`);
+              router.push(`/projects/${id}/program-of-works?estimateId=${result.estimateId}&view=takeoff&section=overview`);
             }
           }}
         />

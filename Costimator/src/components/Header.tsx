@@ -42,12 +42,14 @@ export default function Header() {
             </Link>
             )}
 
-            <Link
-              href="/dupa-templates"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isActive('/dupa-templates') ? 'bg-white text-blue-600 shadow-md' : 'text-white hover:bg-blue-500'}`}
-            >
-              DUPA Templates
-            </Link>
+            {session?.user && (
+              <Link
+                href="/dupa-templates"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isActive('/dupa-templates') ? 'bg-white text-blue-600 shadow-md' : 'text-white hover:bg-blue-500'}`}
+              >
+                DUPA Templates
+              </Link>
+            )}
 
             {isAdmin && (
               <div className="relative group">

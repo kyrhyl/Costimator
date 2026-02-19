@@ -137,6 +137,7 @@ export async function POST(
     const costEstimate = new CostEstimate({
       projectId: project._id,
       takeoffVersionId: undefined,
+      boqSource: 'manual',
       estimateNumber,
       estimateName,
       estimateType: 'preliminary',
@@ -168,6 +169,148 @@ export async function POST(
     return NextResponse.json(responsePayload, { status: 201 });
   } catch (error: any) {
     console.error('Failed to save manual Program of Works version:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Failed to save manual Program of Works' }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getSessionUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!hasRequiredRole(user, PROJECT_WRITE_ROLES)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
+    await dbConnect();
+    const { id } = await params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ success: false, error: 'Invalid project ID' }, { status: 400 });
+    }
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
+    }
+
+    if (project.powMode !== 'manual') {
+      return NextResponse.json({ success: false, error: 'Project is not in manual Program of Works mode' }, { status: 400 });
+    }
+
+    const manualLines = await ProjectBOQ.find({ projectId: id }).lean<IProjectBOQ[]>();
+    if (!manualLines || manualLines.length === 0) {
+      return NextResponse.json({ success: false, error: 'No manual BOQ items to save' }, { status: 400 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const { estimateLines, costSummary } = buildManualEstimatePayload(manualLines);
+
+    const manualConfig = project.manualPowConfig || {};
+    const resolvedLocation = manualConfig.laborLocation || project.district || 'Project Location';
+    const resolvedDistrict = manualConfig.district || project.district || 'N/A';
+    const resolvedCmpd = manualConfig.cmpdVersion || project.cmpdVersion || 'N/A';
+    const ocmPercentage = costSummary.totalDirectCost > 0
+      ? (costSummary.totalOCM / costSummary.totalDirectCost) * 100
+      : 12;
+    const cpPercentage = costSummary.totalDirectCost > 0
+      ? (costSummary.totalCP / costSummary.totalDirectCost) * 100
+      : 10;
+    const vatPercentage = manualConfig.vatPercentage ?? 12;
+
+    const requestedEstimateId = body?.estimateId;
+    const targetEstimate = requestedEstimateId && mongoose.Types.ObjectId.isValid(requestedEstimateId)
+      ? await CostEstimate.findOne({
+        _id: requestedEstimateId,
+        projectId: id,
+        status: 'draft',
+        boqSource: 'manual',
+      })
+      : await CostEstimate.findOne({
+        projectId: id,
+        status: 'draft',
+        boqSource: 'manual',
+      }).sort({ updatedAt: -1, createdAt: -1 });
+
+    if (!targetEstimate) {
+      const estimateNumber = await CostEstimate.generateEstimateNumber();
+      const estimateName = (body?.name && String(body.name).trim()) || `Manual POW - ${new Date().toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })}`;
+
+      const costEstimate = new CostEstimate({
+        projectId: project._id,
+        takeoffVersionId: undefined,
+        boqSource: 'manual',
+        estimateNumber,
+        estimateName,
+        estimateType: 'preliminary',
+        description: body?.description?.trim(),
+        location: resolvedLocation,
+        district: resolvedDistrict,
+        cmpdVersion: resolvedCmpd,
+        effectiveDate: new Date(),
+        ocmPercentage,
+        cpPercentage,
+        vatPercentage,
+        haulingCostPerKm: project.haulingCostPerKm,
+        distanceFromOffice: project.distanceFromOffice,
+        haulingConfig: project.haulingConfig,
+        estimateLines,
+        status: 'draft',
+        createdBy: user.email || user.name || 'manual-pow',
+        costSummary,
+      });
+
+      await costEstimate.save();
+      project.activeCostEstimateId = costEstimate._id;
+      await project.save();
+
+      return NextResponse.json({
+        success: true,
+        message: 'Manual Program of Works saved.',
+        estimateId: costEstimate._id,
+        data: costEstimate.toObject(),
+      });
+    }
+
+    targetEstimate.estimateName = (body?.name && String(body.name).trim()) || targetEstimate.estimateName;
+    if (typeof body?.description === 'string') {
+      targetEstimate.description = body.description.trim();
+    }
+    targetEstimate.location = resolvedLocation;
+    targetEstimate.district = resolvedDistrict;
+    targetEstimate.cmpdVersion = resolvedCmpd;
+    targetEstimate.ocmPercentage = ocmPercentage;
+    targetEstimate.cpPercentage = cpPercentage;
+    targetEstimate.vatPercentage = vatPercentage;
+    targetEstimate.haulingCostPerKm = project.haulingCostPerKm;
+    targetEstimate.distanceFromOffice = project.distanceFromOffice;
+    targetEstimate.haulingConfig = project.haulingConfig;
+    targetEstimate.estimateLines = estimateLines;
+    targetEstimate.costSummary = costSummary;
+    targetEstimate.boqSource = 'manual';
+
+    await targetEstimate.save();
+    project.activeCostEstimateId = targetEstimate._id;
+    await project.save();
+
+    return NextResponse.json({
+      success: true,
+      message: 'Manual Program of Works saved.',
+      estimateId: targetEstimate._id,
+      data: targetEstimate.toObject(),
+    });
+  } catch (error: any) {
+    console.error('Failed to overwrite manual Program of Works:', error);
     return NextResponse.json({ success: false, error: error.message || 'Failed to save manual Program of Works' }, { status: 500 });
   }
 }

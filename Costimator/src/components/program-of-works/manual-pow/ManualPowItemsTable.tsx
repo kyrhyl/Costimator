@@ -3,6 +3,7 @@ import type { ProjectBoqItem } from './types';
 interface ManualPowItemsTableProps {
   manualItems: ProjectBoqItem[];
   loading: boolean;
+  readOnly?: boolean;
   pendingQuantities: Record<string, number>;
   updatingRowId: string | null;
   deletingRowId: string | null;
@@ -15,6 +16,7 @@ interface ManualPowItemsTableProps {
 export default function ManualPowItemsTable({
   manualItems,
   loading,
+  readOnly = false,
   pendingQuantities,
   updatingRowId,
   deletingRowId,
@@ -34,7 +36,7 @@ export default function ManualPowItemsTable({
             <th className="px-3 py-2 text-right font-medium text-gray-600">Quantity</th>
             <th className="px-3 py-2 text-right font-medium text-gray-600">Unit Cost</th>
             <th className="px-3 py-2 text-right font-medium text-gray-600">Total Amount</th>
-            <th className="px-3 py-2"></th>
+             <th className="px-3 py-2"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 bg-white">
@@ -72,7 +74,7 @@ export default function ManualPowItemsTable({
                       value={quantityValue}
                       onChange={(e) => onPendingQuantityChange(item._id, Number(e.target.value))}
                       onBlur={() => onQuantityBlur(item._id, item.quantity)}
-                      disabled={updatingRowId === item._id}
+                       disabled={readOnly || updatingRowId === item._id}
                     />
                   </td>
                   <td className="px-3 py-2 text-right text-gray-900">
@@ -84,14 +86,18 @@ export default function ManualPowItemsTable({
                     })}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onDelete(item._id)}
-                      className="text-sm text-red-600 hover:text-red-700"
-                      disabled={deletingRowId === item._id}
-                    >
-                      {deletingRowId === item._id ? 'Deleting...' : 'Delete'}
-                    </button>
+                     {readOnly ? (
+                       <span className="text-xs text-gray-400">Read-only</span>
+                     ) : (
+                       <button
+                         type="button"
+                         onClick={() => onDelete(item._id)}
+                         className="text-sm text-red-600 hover:text-red-700"
+                         disabled={deletingRowId === item._id}
+                       >
+                         {deletingRowId === item._id ? 'Deleting...' : 'Delete'}
+                       </button>
+                     )}
                   </td>
                 </tr>
               );

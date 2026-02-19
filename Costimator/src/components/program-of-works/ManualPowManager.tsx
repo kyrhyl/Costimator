@@ -3,15 +3,14 @@
 import { useMemo, useState } from 'react';
 import ManualPowConfigModal from './manual-pow/ManualPowConfigModal';
 import ManualPowItemsTable from './manual-pow/ManualPowItemsTable';
-import ManualPowSaveVersionModal from './manual-pow/ManualPowSaveVersionModal';
 import ManualPowTemplateModal from './manual-pow/ManualPowTemplateModal';
-import type { ManualPowConfigForm, ProjectBoqItem, SaveVersionForm, StagedTemplate } from './manual-pow/types';
+import type { ManualPowConfigForm, ProjectBoqItem, StagedTemplate } from './manual-pow/types';
 import { useManualPowMasterData } from './manual-pow/useManualPowMasterData';
 import { useManualPowTemplates } from './manual-pow/useManualPowTemplates';
 import {
   deleteProjectBoqItem,
   saveManualPowConfig,
-  saveManualPowVersion,
+  saveManualPowDraft,
   saveStagedManualPowItems,
   updateProjectBoqQuantity,
 } from './manual-pow/services';
@@ -21,6 +20,7 @@ export type { ProjectBoqItem } from './manual-pow/types';
 interface ManualPowManagerProps {
   projectId: string;
   projectName: string;
+  readOnly?: boolean;
   projectLocation?: string;
   district?: string;
   manualConfig?: {
@@ -50,6 +50,7 @@ const getDefaultVersionName = () => {
 export default function ManualPowManager({
   projectId,
   projectName,
+  readOnly = false,
   projectLocation,
   district,
   manualConfig,
@@ -63,8 +64,10 @@ export default function ManualPowManager({
   const [templateSearch, setTemplateSearch] = useState('');
   const [partFilter, setPartFilter] = useState('all');
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<Record<string, boolean>>({});
+  const [quickQuantities, setQuickQuantities] = useState<Record<string, number>>({});
   const [stagedTemplates, setStagedTemplates] = useState<StagedTemplate[]>([]);
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [quickAddingTemplateId, setQuickAddingTemplateId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
 
@@ -83,11 +86,9 @@ export default function ManualPowManager({
     notes: manualConfig?.notes || '',
   });
 
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [saveForm, setSaveForm] = useState<SaveVersionForm>({ name: '', description: '' });
-  const [savingVersion, setSavingVersion] = useState(false);
-  const [versionError, setVersionError] = useState<string | null>(null);
-  const [versionSuccess, setVersionSuccess] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   const { templates, loadingTemplates, templateError, resetTemplateState } = useManualPowTemplates({
     enabled: showTemplateModal,
@@ -106,6 +107,7 @@ export default function ManualPowManager({
     setTemplateSearch('');
     setPartFilter('all');
     setSelectedTemplateIds({});
+    setQuickQuantities({});
     setStagedTemplates([]);
     setError(null);
     setBulkError(null);
@@ -118,6 +120,7 @@ export default function ManualPowManager({
   };
 
   const openConfigModal = () => {
+    if (readOnly) return;
     setConfigForm({
       laborLocation: manualConfig?.laborLocation || district || projectLocation || '',
       district: manualConfig?.district || district || '',
@@ -130,6 +133,7 @@ export default function ManualPowManager({
   };
 
   const openTemplateModal = () => {
+    if (readOnly) return;
     if (!manualConfig?.laborLocation) {
       openConfigModal();
       return;
@@ -138,6 +142,7 @@ export default function ManualPowManager({
   };
 
   const handleSaveManualConfig = async () => {
+    if (readOnly) return;
     if (!configForm.laborLocation) {
       setConfigError('Select a labor rate location.');
       return;
@@ -165,48 +170,35 @@ export default function ManualPowManager({
     }
   };
 
-  const openSaveModal = () => {
+  const handleSaveManualPow = async () => {
+    if (readOnly) return;
     if (!manualConfig?.laborLocation) {
-      setVersionError('Configure the manual POW settings before saving a version.');
+      setSaveError('Configure the manual POW settings before saving.');
       openConfigModal();
       return;
     }
+
     if (!manualItems.length) {
-      setVersionError('Add at least one BOQ line before saving.');
+      setSaveError('Add at least one BOQ line before saving.');
       return;
     }
 
-    setSaveForm({ name: getDefaultVersionName(), description: '' });
-    setVersionError(null);
-    setShowSaveModal(true);
-  };
-
-  const handleSaveManualVersion = async () => {
-    if (!manualItems.length) {
-      setVersionError('Add at least one BOQ line before saving.');
-      return;
-    }
-
-    setSavingVersion(true);
-    setVersionError(null);
+    setSavingDraft(true);
+    setSaveError(null);
 
     try {
-      const data = await saveManualPowVersion(projectId, {
-        name: saveForm.name,
-        description: saveForm.description,
+      const data = await saveManualPowDraft(projectId, {
+        name: getDefaultVersionName(),
       });
 
-      setShowSaveModal(false);
-      setVersionError(null);
-      setVersionSuccess(data.message || 'Manual Program of Works saved as a new version.');
-      setSaveForm({ name: '', description: '' });
+      setSaveSuccess(data.message || 'Manual Program of Works saved.');
       if (onManualVersionSaved) {
         await onManualVersionSaved(data.data?._id || data.estimateId);
       }
     } catch (err: any) {
-      setVersionError(err.message || 'Failed to save Manual Program of Works');
+      setSaveError(err.message || 'Failed to save Manual Program of Works');
     } finally {
-      setSavingVersion(false);
+      setSavingDraft(false);
     }
   };
 
@@ -215,6 +207,7 @@ export default function ManualPowManager({
   };
 
   const handleAddSelectedTemplates = () => {
+    if (readOnly) return;
     const selectedIds = Object.entries(selectedTemplateIds)
       .filter(([, checked]) => checked)
       .map(([id]) => id);
@@ -239,14 +232,17 @@ export default function ManualPowManager({
   };
 
   const handleStagedQuantityChange = (templateId: string, value: number) => {
+    if (readOnly) return;
     setStagedTemplates((prev) => prev.map((item) => (item._id === templateId ? { ...item, quantity: value } : item)));
   };
 
   const handleRemoveStagedTemplate = (templateId: string) => {
+    if (readOnly) return;
     setStagedTemplates((prev) => prev.filter((item) => item._id !== templateId));
   };
 
   const handleSaveStagedItems = async () => {
+    if (readOnly) return;
     if (!laborLocation) {
       setBulkError('Set a labor rate location for Manual Program of Works.');
       return;
@@ -277,7 +273,51 @@ export default function ManualPowManager({
     }
   };
 
+  const handleQuickQuantityChange = (templateId: string, value: number) => {
+    if (readOnly) return;
+    setQuickQuantities((prev) => ({ ...prev, [templateId]: value }));
+  };
+
+  const handleQuickAddTemplate = async (template: { _id: string; payItemNumber: string; payItemDescription: string; unitOfMeasurement: string; part?: string; category?: string }) => {
+    if (readOnly) return;
+    if (!laborLocation) {
+      setBulkError('Set a labor rate location for Manual Program of Works.');
+      return;
+    }
+
+    const quantity = Number(quickQuantities[template._id] ?? 1);
+    if (!quantity || quantity <= 0) {
+      setBulkError('Enter a quantity greater than zero.');
+      return;
+    }
+
+    setQuickAddingTemplateId(template._id);
+    setBulkError(null);
+    setError(null);
+
+    try {
+      await saveStagedManualPowItems(projectId, laborLocation, [{
+        _id: template._id,
+        payItemNumber: template.payItemNumber,
+        payItemDescription: template.payItemDescription,
+        unitOfMeasurement: template.unitOfMeasurement,
+        part: template.part,
+        category: template.category,
+        quantity,
+      }]);
+      await onReload();
+      setSaveSuccess(`Added ${template.payItemNumber}.`);
+      setQuickQuantities((prev) => ({ ...prev, [template._id]: 1 }));
+    } catch (err: any) {
+      console.error('Failed to add BOQ item quickly', err);
+      setBulkError(err.message || 'Failed to add BOQ item');
+    } finally {
+      setQuickAddingTemplateId(null);
+    }
+  };
+
   const handleQuantityBlur = async (itemId: string, originalQuantity: number) => {
+    if (readOnly) return;
     const pending = pendingQuantities[itemId];
     if (pending === undefined || pending === originalQuantity) return;
 
@@ -291,22 +331,29 @@ export default function ManualPowManager({
       setUpdatingRowId(itemId);
       await updateProjectBoqQuantity(itemId, pending);
       await onReload();
-    } catch (err) {
+      setSaveSuccess('Quantity saved.');
+      setSaveError(null);
+    } catch (err: any) {
       console.error('Failed to update quantity', err);
+      setSaveError(err.message || 'Failed to save quantity.');
     } finally {
       setUpdatingRowId(null);
     }
   };
 
   const handleDelete = async (itemId: string) => {
+    if (readOnly) return;
     if (!confirm('Delete this BOQ line? This action cannot be undone.')) return;
 
     try {
       setDeletingRowId(itemId);
       await deleteProjectBoqItem(itemId);
       await onReload();
-    } catch (err) {
+      setSaveSuccess('BOQ item deleted.');
+      setSaveError(null);
+    } catch (err: any) {
       console.error('Failed to delete BOQ item', err);
+      setSaveError(err.message || 'Failed to delete BOQ item.');
     } finally {
       setDeletingRowId(null);
     }
@@ -322,6 +369,9 @@ export default function ManualPowManager({
           <p className="text-xs text-gray-500">
             Add BOQ lines directly from DUPA templates for {projectName}. These entries drive the Program of Works summaries.
           </p>
+          {readOnly && (
+            <p className="mt-1 text-xs text-amber-700">Read-only mode: switch project POW mode to Manual to edit BOQ entries.</p>
+          )}
           {manualConfig?.laborLocation ? (
             <p className="mt-1 text-xs text-blue-700">
               Labor rates: {manualConfig.laborLocation} • CMPD: {manualConfig.cmpdVersion || 'Project Default'}
@@ -334,6 +384,7 @@ export default function ManualPowManager({
           <button
             type="button"
             onClick={openConfigModal}
+            disabled={readOnly}
             className="inline-flex items-center rounded-md border border-blue-200 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
           >
             {manualConfig?.laborLocation ? 'Edit Manual Settings' : 'Configure Manual POW'}
@@ -341,9 +392,9 @@ export default function ManualPowManager({
           <button
             type="button"
             onClick={openTemplateModal}
-            disabled={!hasManualSettings}
+            disabled={readOnly || !hasManualSettings}
             className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${
-              hasManualSettings && manualConfig?.laborLocation
+              !readOnly && hasManualSettings && manualConfig?.laborLocation
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'cursor-not-allowed bg-gray-200 text-gray-500'
             }`}
@@ -353,16 +404,16 @@ export default function ManualPowManager({
           </button>
           <button
             type="button"
-            onClick={openSaveModal}
-            disabled={!manualItems.length}
+            onClick={handleSaveManualPow}
+            disabled={readOnly || !manualItems.length || savingDraft}
             className={`inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium ${
               manualItems.length
                 ? 'border-dpwh-green-300 text-dpwh-green-700 hover:bg-dpwh-green-50'
                 : 'cursor-not-allowed border-gray-200 text-gray-400'
             }`}
-            title={manualItems.length ? 'Save manual BOQ entries as a Program of Works version' : 'Add BOQ lines before saving'}
+            title={manualItems.length ? 'Save Manual Program of Works' : 'Add BOQ lines before saving'}
           >
-            💾 Save as Version
+            {savingDraft ? 'Saving...' : '💾 Save'}
           </button>
           <button
             type="button"
@@ -374,16 +425,17 @@ export default function ManualPowManager({
         </div>
       </div>
 
-      {versionSuccess && (
-        <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">{versionSuccess}</div>
+      {saveSuccess && (
+        <div className="mt-4 rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">{saveSuccess}</div>
       )}
-      {versionError && !showSaveModal && !showConfigModal && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{versionError}</div>
+      {saveError && !showConfigModal && (
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{saveError}</div>
       )}
 
       <ManualPowItemsTable
         manualItems={manualItems}
         loading={loading}
+        readOnly={readOnly}
         pendingQuantities={pendingQuantities}
         updatingRowId={updatingRowId}
         deletingRowId={deletingRowId}
@@ -404,6 +456,7 @@ export default function ManualPowManager({
         loadingTemplates={loadingTemplates}
         templateError={templateError}
         selectedTemplateIds={selectedTemplateIds}
+        quickQuantities={quickQuantities}
         stagedTemplates={stagedTemplates}
         error={error}
         bulkError={bulkError}
@@ -412,21 +465,13 @@ export default function ManualPowManager({
         onTemplateSearchChange={setTemplateSearch}
         onPartFilterChange={setPartFilter}
         onToggleTemplateSelection={toggleTemplateSelection}
+        onQuickQuantityChange={handleQuickQuantityChange}
+        onQuickAddTemplate={handleQuickAddTemplate}
+        quickAddingTemplateId={quickAddingTemplateId}
         onAddSelectedTemplates={handleAddSelectedTemplates}
         onStagedQuantityChange={handleStagedQuantityChange}
         onRemoveStagedTemplate={handleRemoveStagedTemplate}
         onSaveItems={handleSaveStagedItems}
-      />
-
-      <ManualPowSaveVersionModal
-        show={showSaveModal}
-        saveForm={saveForm}
-        savingVersion={savingVersion}
-        versionError={versionError}
-        onClose={() => setShowSaveModal(false)}
-        onNameChange={(name) => setSaveForm((prev) => ({ ...prev, name }))}
-        onDescriptionChange={(description) => setSaveForm((prev) => ({ ...prev, description }))}
-        onSave={handleSaveManualVersion}
       />
 
       <ManualPowConfigModal

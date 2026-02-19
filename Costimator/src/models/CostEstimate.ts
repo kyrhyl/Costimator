@@ -128,6 +128,9 @@ export interface ICostEstimate extends Document {
   estimateName: string;              // "Q1 2024 Pricing", "Q2 2024 Pricing"
   estimateType: 'preliminary' | 'detailed' | 'revised' | 'final';
   description?: string;
+  boqSource?: 'boqDatabase' | 'projectBOQ' | 'takeoffVersion' | 'calcRun' | 'manual';
+  boqVersion?: number;
+  boqSourceRef?: mongoose.Types.ObjectId;
   
   // Pricing Configuration
   location: string;                  // For labor rates
@@ -301,6 +304,21 @@ const CostEstimateSchema = new Schema<ICostEstimate>(
     description: { 
       type: String,
       default: ''
+    },
+    boqSource: {
+      type: String,
+      enum: ['boqDatabase', 'projectBOQ', 'takeoffVersion', 'calcRun', 'manual'],
+      default: 'boqDatabase',
+      index: true,
+    },
+    boqVersion: {
+      type: Number,
+      min: 1,
+      default: null,
+    },
+    boqSourceRef: {
+      type: Schema.Types.ObjectId,
+      default: null,
     },
     
     // Pricing Configuration

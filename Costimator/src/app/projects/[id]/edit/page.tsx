@@ -20,6 +20,25 @@ interface LaborRate {
   district?: string;
 }
 
+function formatCurrencyInput(value: string): string {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  if (!cleaned) return '';
+
+  const [intPartRaw, ...decParts] = cleaned.split('.');
+  const intPart = intPartRaw.replace(/^0+(?=\d)/, '') || '0';
+  const formattedInt = Number(intPart).toLocaleString('en-US');
+  const decPart = decParts.join('').slice(0, 2);
+
+  return decParts.length > 0 ? `${formattedInt}.${decPart}` : formattedInt;
+}
+
+function parseCurrencyInput(value: string): number | undefined {
+  const normalized = value.replace(/,/g, '').trim();
+  if (!normalized) return undefined;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export default function EditProjectPage() {
   const params = useParams();
   const router = useRouter();
@@ -31,7 +50,6 @@ export default function EditProjectPage() {
   const [locations, setLocations] = useState<LaborRate[]>([]);
   const [cmpdVersions, setCmpdVersions] = useState<string[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
-  const [activePOWTab, setActivePOWTab] = useState<'projectDetails' | 'fundSource' | 'physicalTarget' | 'financial'>('projectDetails');
 
   // Form fields
   const [projectName, setProjectName] = useState('');
@@ -47,7 +65,6 @@ export default function EditProjectPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [description, setDescription] = useState('');
-  const [haulingCostPerKm, setHaulingCostPerKm] = useState(0);
   const [distanceFromOffice, setDistanceFromOffice] = useState(0);
 
   // DPWH Program of Works fields
@@ -113,13 +130,12 @@ export default function EditProjectPage() {
         setDistrict(project.district || 'Bukidnon 1st District');
         setCmpdVersion(project.cmpdVersion || '');
         setImplementingOffice(project.implementingOffice || '');
-        setAppropriation(project.appropriation?.toString() || '');
+        setAppropriation(formatCurrencyInput(project.appropriation?.toString() || ''));
         setContractId(project.contractId || '');
         setProjectType(project.projectType || 'Road Construction');
         setPowMode(project.powMode || 'takeoff');
         setStatus(project.status || 'Planning');
         setDescription(project.description || '');
-        setHaulingCostPerKm(project.haulingCostPerKm || 0);
         setDistanceFromOffice(project.distanceFromOffice || 0);
 
         // Format dates for input fields
@@ -154,8 +170,8 @@ export default function EditProjectPage() {
         setProjectComponentInfraId((project.projectComponent as any)?.infraId || '');
         setProjectComponentLatitude((project.projectComponent as any)?.coordinates?.latitude?.toString() || '');
         setProjectComponentLongitude((project.projectComponent as any)?.coordinates?.longitude?.toString() || '');
-        setAllotedAmount(project.allotedAmount?.toString() || '');
-        setEstimatedComponentCost(project.estimatedComponentCost?.toString() || '');
+        setAllotedAmount(formatCurrencyInput(project.allotedAmount?.toString() || ''));
+        setEstimatedComponentCost(formatCurrencyInput(project.estimatedComponentCost?.toString() || ''));
 
         // Fetch CMPD versions for the project's district
         if (project.district) {
@@ -196,7 +212,7 @@ export default function EditProjectPage() {
       district,
       cmpdVersion,
       implementingOffice,
-      appropriation: appropriation ? parseFloat(appropriation) : undefined,
+      appropriation: parseCurrencyInput(appropriation),
       contractId,
       projectType,
       powMode,
@@ -204,7 +220,6 @@ export default function EditProjectPage() {
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       description,
-      haulingCostPerKm,
       distanceFromOffice,
       // DPWH POW fields
       address,
@@ -236,23 +251,36 @@ export default function EditProjectPage() {
           longitude: projectComponentLongitude ? parseFloat(projectComponentLongitude) : undefined,
         },
       },
-      allotedAmount: allotedAmount ? parseFloat(allotedAmount) : undefined,
-      estimatedComponentCost: estimatedComponentCost ? parseFloat(estimatedComponentCost) : undefined,
+      allotedAmount: parseCurrencyInput(allotedAmount),
+      estimatedComponentCost: parseCurrencyInput(estimatedComponentCost),
     };
 
     try {
       const response = await fetch(`/api/projects/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectData),
       });
 
-      const result = await response.json();
+      const raw = await response.text();
+      let result: any = null;
 
-      if (result.success) {
+      if (raw) {
+        try {
+          result = JSON.parse(raw);
+        } catch {
+          result = null;
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(result?.error || raw || `Request failed (${response.status})`);
+      }
+
+      if (result?.success) {
         router.push(`/projects/${id}`);
       } else {
-        setError(result.error || 'Failed to update project');
+        setError(result?.error || 'Failed to update project');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to update project');
@@ -449,10 +477,10 @@ export default function EditProjectPage() {
                   Appropriation
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   value={appropriation}
-                  onChange={(e) => setAppropriation(e.target.value)}
+                  onChange={(e) => setAppropriation(formatCurrencyInput(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="0.00"
                 />
@@ -546,6 +574,20 @@ export default function EditProjectPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Distance from Office (km)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={distanceFromOffice}
+                  onChange={(e) => setDistanceFromOffice(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
@@ -561,335 +603,245 @@ export default function EditProjectPage() {
             </div>
           </div>
 
-          {/* Hauling Configuration */}
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Material Hauling Cost</h2>
+            <h2 className="text-xl font-semibold mb-4">DPWH Project Details</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Sitio Tagilanao, Malaybalay City, Bukidnon"
+                />
+              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hauling Cost per Km (₱)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Target Start Date</label>
+                <input
+                  type="date"
+                  value={targetStartDate}
+                  onChange={(e) => setTargetStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Target Completion Date</label>
+                <input
+                  type="date"
+                  value={targetCompletionDate}
+                  onChange={(e) => setTargetCompletionDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contract Duration (CD)</label>
                 <input
                   type="number"
                   step="0.01"
-                  value={haulingCostPerKm}
-                  onChange={(e) => setHaulingCostPerKm(parseFloat(e.target.value) || 0)}
+                  value={contractDurationCD}
+                  onChange={(e) => setContractDurationCD(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Distance from Office (km)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">No. of Workable Days</label>
                 <input
                   type="number"
-                  step="0.01"
-                  value={distanceFromOffice}
-                  onChange={(e) => setDistanceFromOffice(parseFloat(e.target.value) || 0)}
+                  value={workingDays}
+                  onChange={(e) => setWorkingDays(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0.00"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Sundays</label>
+                <input
+                  type="number"
+                  value={unworkableDaysSundays}
+                  onChange={(e) => setUnworkableDaysSundays(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Holidays</label>
+                <input
+                  type="number"
+                  value={unworkableDaysHolidays}
+                  onChange={(e) => setUnworkableDaysHolidays(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Rainy Days</label>
+                <input
+                  type="number"
+                  value={unworkableDaysRainyDays}
+                  onChange={(e) => setUnworkableDaysRainyDays(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0"
                 />
               </div>
             </div>
           </div>
 
-          {/* DPWH Program of Works Settings */}
           <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">DPWH Program of Works Details</h2>
+            <h2 className="text-xl font-semibold mb-4">Fund Source</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
+                <input
+                  type="text"
+                  value={fundSourceProjectId}
+                  onChange={(e) => setFundSourceProjectId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., 2025-BEFF-001"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Funding Agreement</label>
+                <input
+                  type="text"
+                  value={fundSourceFundingAgreement}
+                  onChange={(e) => setFundSourceFundingAgreement(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., (BEFF) FY 2025"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Funding Organization</label>
+                <input
+                  type="text"
+                  value={fundSourceFundingOrganization}
+                  onChange={(e) => setFundSourceFundingOrganization(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., National Treasury"
+                />
+              </div>
             </div>
-            
-            {/* Tab Navigation */}
-            <div className="border-b border-gray-200 mb-4">
-              <nav className="flex space-x-6" aria-label="DPWH POW tabs">
-                <button
-                  onClick={() => setActivePOWTab('projectDetails')}
-                  className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
-                    activePOWTab === 'projectDetails'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Project Details
-                </button>
-                <button
-                  onClick={() => setActivePOWTab('fundSource')}
-                  className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
-                    activePOWTab === 'fundSource'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Fund Source
-                </button>
-                <button
-                  onClick={() => setActivePOWTab('physicalTarget')}
-                  className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
-                    activePOWTab === 'physicalTarget'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Physical Target
-                </button>
-                <button
-                  onClick={() => setActivePOWTab('financial')}
-                  className={`py-2 px-1 border-b-2 text-sm font-medium transition-colors ${
-                    activePOWTab === 'financial'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Financial
-                </button>
-              </nav>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">Physical Target</h2>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Infra Type</label>
+                <input
+                  type="text"
+                  value={physicalTargetInfraType}
+                  onChange={(e) => setPhysicalTargetInfraType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Local"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Project Component ID</label>
+                <input
+                  type="text"
+                  value={physicalTargetProjectComponentId}
+                  onChange={(e) => setPhysicalTargetProjectComponentId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., CW1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Target Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={physicalTargetTargetAmount}
+                  onChange={(e) => setPhysicalTargetTargetAmount(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit of Measure</label>
+                <input
+                  type="text"
+                  value={physicalTargetUnitOfMeasure}
+                  onChange={(e) => setPhysicalTargetUnitOfMeasure(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., No. of Storey"
+                />
+              </div>
             </div>
+          </div>
 
-            {/* Tab Content */}
-            <div className="mt-4">
-              {/* Project Details Tab */}
-              {activePOWTab === 'projectDetails' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                    <input
-                      type="text"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., Sitio Tagilanao, Malaybalay City, Bukidnon"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Start Date</label>
-                    <input
-                      type="date"
-                      value={targetStartDate}
-                      onChange={(e) => setTargetStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Completion Date</label>
-                    <input
-                      type="date"
-                      value={targetCompletionDate}
-                      onChange={(e) => setTargetCompletionDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contract Duration (CD)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={contractDurationCD}
-                      onChange={(e) => setContractDurationCD(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">No. of Workable Days</label>
-                    <input
-                      type="number"
-                      value={workingDays}
-                      onChange={(e) => setWorkingDays(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Sundays</label>
-                    <input
-                      type="number"
-                      value={unworkableDaysSundays}
-                      onChange={(e) => setUnworkableDaysSundays(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Holidays</label>
-                    <input
-                      type="number"
-                      value={unworkableDaysHolidays}
-                      onChange={(e) => setUnworkableDaysHolidays(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unworkable Days - Rainy Days</label>
-                    <input
-                      type="number"
-                      value={unworkableDaysRainyDays}
-                      onChange={(e) => setUnworkableDaysRainyDays(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="0"
-                    />
-                  </div>
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">Financial & Component Details</h2>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Component ID</label>
+                  <input
+                    type="text"
+                    value={projectComponentComponentId}
+                    onChange={(e) => setProjectComponentComponentId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., 22"
+                  />
                 </div>
-              )}
-
-              {/* Fund Source Tab */}
-              {activePOWTab === 'fundSource' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project ID</label>
-                    <input
-                      type="text"
-                      value={fundSourceProjectId}
-                      onChange={(e) => setFundSourceProjectId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., 2025-BEFF-001"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Funding Agreement</label>
-                    <input
-                      type="text"
-                      value={fundSourceFundingAgreement}
-                      onChange={(e) => setFundSourceFundingAgreement(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., (BEFF) FY 2025"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Funding Organization</label>
-                    <input
-                      type="text"
-                      value={fundSourceFundingOrganization}
-                      onChange={(e) => setFundSourceFundingOrganization(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., National Treasury"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Infra ID</label>
+                  <input
+                    type="text"
+                    value={projectComponentInfraId}
+                    onChange={(e) => setProjectComponentInfraId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., 212"
+                  />
                 </div>
-              )}
-
-              {/* Physical Target Tab */}
-              {activePOWTab === 'physicalTarget' && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Infra Type</label>
-                    <input
-                      type="text"
-                      value={physicalTargetInfraType}
-                      onChange={(e) => setPhysicalTargetInfraType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., Local"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Component ID</label>
-                    <input
-                      type="text"
-                      value={physicalTargetProjectComponentId}
-                      onChange={(e) => setPhysicalTargetProjectComponentId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., CW1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Amount</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={physicalTargetTargetAmount}
-                      onChange={(e) => setPhysicalTargetTargetAmount(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit of Measure</label>
-                    <input
-                      type="text"
-                      value={physicalTargetUnitOfMeasure}
-                      onChange={(e) => setPhysicalTargetUnitOfMeasure(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., No. of Storey"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={projectComponentLatitude}
+                    onChange={(e) => setProjectComponentLatitude(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.000000"
+                  />
                 </div>
-              )}
-
-              {/* Financial Tab */}
-              {activePOWTab === 'financial' && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Component ID</label>
-                      <input
-                        type="text"
-                        value={projectComponentComponentId}
-                        onChange={(e) => setProjectComponentComponentId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="e.g., 22"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Infra ID</label>
-                      <input
-                        type="text"
-                        value={projectComponentInfraId}
-                        onChange={(e) => setProjectComponentInfraId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="e.g., 212"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
-                      <input
-                        type="number"
-                        step="0.000001"
-                        value={projectComponentLatitude}
-                        onChange={(e) => setProjectComponentLatitude(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="0.000000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
-                      <input
-                        type="number"
-                        step="0.000001"
-                        value={projectComponentLongitude}
-                        onChange={(e) => setProjectComponentLongitude(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="0.000000"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Allotted Amount (₱)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={allotedAmount}
-                        onChange={(e) => setAllotedAmount(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Component Cost (₱)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={estimatedComponentCost}
-                        onChange={(e) => setEstimatedComponentCost(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={projectComponentLongitude}
+                    onChange={(e) => setProjectComponentLongitude(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.000000"
+                  />
                 </div>
-              )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Allotted Amount (₱)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={allotedAmount}
+                    onChange={(e) => setAllotedAmount(formatCurrencyInput(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Component Cost (₱)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={estimatedComponentCost}
+                    onChange={(e) => setEstimatedComponentCost(formatCurrencyInput(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

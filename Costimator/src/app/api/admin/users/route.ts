@@ -5,6 +5,7 @@ import User from '@/models/User';
 import { hashPassword } from '@/lib/auth/password';
 import { getSessionUser } from '@/lib/auth/session';
 import { MASTER_ADMIN_ROLES } from '@/lib/auth/roles';
+import { buildAuditActor, logAuditEvent } from '@/lib/audit/logger';
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -64,6 +65,24 @@ export async function POST(request: NextRequest) {
     roles: parsed.data.roles,
     status: parsed.data.status || 'active',
     createdBy: auth.user?.id,
+  });
+
+  await logAuditEvent({
+    actor: buildAuditActor(auth.user),
+    action: 'create',
+    entityType: 'user',
+    entityId: user._id.toString(),
+    summary: `Created user ${user.email}`,
+    request,
+    changes: {
+      after: {
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        roles: user.roles,
+        status: user.status,
+      },
+    },
   });
 
   return NextResponse.json(

@@ -22,6 +22,9 @@ interface ProjectHaulingConfig {
 
 interface ProgramOfWorksHaulingProps {
   projectId: string;
+  powMode?: 'takeoff' | 'manual';
+  activeEstimateId?: string;
+  onEstimateRepriced?: (estimateId: string) => void;
   project: {
     distanceFromOffice?: number;
     haulingConfig?: ProjectHaulingConfig | null;
@@ -49,7 +52,13 @@ const defaultSegments: RouteSegment[] = [
   },
 ];
 
-export default function ProgramOfWorksHauling({ projectId, project }: ProgramOfWorksHaulingProps) {
+export default function ProgramOfWorksHauling({
+  projectId,
+  powMode,
+  activeEstimateId,
+  onEstimateRepriced,
+  project,
+}: ProgramOfWorksHaulingProps) {
   const [materialName, setMaterialName] = useState('Aggregates');
   const [materialSource, setMaterialSource] = useState('');
   const [totalDistance, setTotalDistance] = useState(0);
@@ -59,6 +68,7 @@ export default function ProgramOfWorksHauling({ projectId, project }: ProgramOfW
   const [equipmentRentalRate, setEquipmentRentalRate] = useState(1420);
   const [saving, setSaving] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [repricingEstimate, setRepricingEstimate] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -152,6 +162,37 @@ export default function ProgramOfWorksHauling({ projectId, project }: ProgramOfW
       setMessage(error.message || 'Failed to recalculate BOQ costs.');
     } finally {
       setRecalculating(false);
+    }
+  };
+
+  const handleRepriceEstimate = async () => {
+    if (!activeEstimateId) {
+      setMessage('Select an estimate first before repricing.');
+      return;
+    }
+
+    setRepricingEstimate(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/cost-estimates/${activeEstimateId}/reprice`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to reprice estimate');
+      }
+
+      const newEstimateId = data?.data?._id as string | undefined;
+      if (newEstimateId && onEstimateRepriced) {
+        onEstimateRepriced(newEstimateId);
+      }
+
+      setMessage(data.message || 'Created a repriced estimate version.');
+    } catch (error: any) {
+      setMessage(error.message || 'Failed to reprice estimate.');
+    } finally {
+      setRepricingEstimate(false);
     }
   };
 
@@ -362,13 +403,24 @@ export default function ProgramOfWorksHauling({ projectId, project }: ProgramOfW
         >
           {saving ? 'Saving...' : 'Save Hauling Configuration'}
         </button>
-        <button
-          onClick={handleRecalculate}
-          disabled={recalculating}
-          className="inline-flex items-center gap-2 bg-dpwh-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-dpwh-green-700 disabled:opacity-60"
-        >
-          {recalculating ? 'Recalculating...' : 'Recalculate BOQ Costs'}
-        </button>
+        {powMode === 'manual' && (
+          <button
+            onClick={handleRecalculate}
+            disabled={recalculating}
+            className="inline-flex items-center gap-2 bg-dpwh-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-dpwh-green-700 disabled:opacity-60"
+          >
+            {recalculating ? 'Recalculating...' : 'Recalculate BOQ Costs'}
+          </button>
+        )}
+        {powMode !== 'manual' && (
+          <button
+            onClick={handleRepriceEstimate}
+            disabled={repricingEstimate || !activeEstimateId}
+            className="inline-flex items-center gap-2 bg-dpwh-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-dpwh-blue-700 disabled:opacity-60"
+          >
+            {repricingEstimate ? 'Repricing Estimate...' : 'Reprice Current Estimate'}
+          </button>
+        )}
       </div>
     </div>
   );

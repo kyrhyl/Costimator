@@ -8,6 +8,7 @@ import PayItem from '@/models/PayItem';
 import DUPATemplate from '@/models/DUPATemplate';
 import mongoose from 'mongoose';
 import { getDivisionForPart, normalizePart, PART_DESCRIPTIONS, PART_ORDER } from '@/lib/utils/dpwh-constants';
+import { computePercentOfProjectCost } from '@/lib/utils/pow-math';
 
 interface BOQLineItem {
   payItemNumber: string;
@@ -123,19 +124,19 @@ export async function GET(
     }
     console.log('========================');
     
-    const totalDirectCost = boqItems.reduce((sum, item) => sum + (item.directCost || 0), 0);
+    const totalDirectCost = allItems.reduce((sum, item) => sum + (item.directCost || 0), 0);
+    const expenditureBreakdown = calculateExpenditureBreakdown(allItems);
+    const totalProjectCost = expenditureBreakdown.totalEstimatedCost || 0;
     const partDescriptions = await getPartDescriptionsFromDB();
-    const worksItems = groupItemsByPart(allItems, partDescriptions);
-    const itemizedParts = groupItemsByPartDetailed(allItems, partDescriptions);
-    const componentBreakdown = groupItemsByComponentBreakdown(allItems, partDescriptions, totalDirectCost);
+    const worksItems = groupItemsByPart(allItems, partDescriptions, totalProjectCost);
+    const itemizedParts = groupItemsByPartDetailed(allItems, partDescriptions, totalProjectCost);
+    const componentBreakdown = groupItemsByComponentBreakdown(allItems, partDescriptions, totalProjectCost);
 
     console.log('Works Items Grouped:', worksItems.length, 'parts found');
     worksItems.forEach((item: any, idx: number) => {
       console.log(`  Part ${idx + 1}:`, item.part, '-', item.items.length, 'items');
     });
     console.log('Itemized Parts:', itemizedParts.length, 'parts with detailed items');
-    const expenditureBreakdown = calculateExpenditureBreakdown(allItems);
-    const totalProjectCost = totalDirectCost + (expenditureBreakdown.ocm || 0) + (expenditureBreakdown.vat || 0);
 
     const header = {
       implementingOffice: project.implementingOffice || 'DPWH District Engineering Office',
@@ -258,7 +259,11 @@ async function getPartDescriptionsFromDB(): Promise<Record<string, string>> {
   return { ...PART_DESCRIPTIONS, 'PART D': 'REINFORCED CONCRETE / BUILDINGS' };
 }
 
-function groupItemsByPart(boqItems: any[], partDescriptions: Record<string, string>): Array<{
+function groupItemsByPart(
+  boqItems: any[],
+  partDescriptions: Record<string, string>,
+  totalProjectCost: number,
+): Array<{
   part: string;
   partDescription: string;
   division: string;
@@ -314,8 +319,6 @@ function groupItemsByPart(boqItems: any[], partDescriptions: Record<string, stri
 
   console.log('Part map created:', partMap.size, 'unique parts');
 
-  const totalDirectCost = boqItems.reduce((sum, item) => sum + (item.directCost || 0), 0);
-
   return Array.from(partMap.entries())
     .map(([part, data]) => ({
       part,
@@ -323,7 +326,7 @@ function groupItemsByPart(boqItems: any[], partDescriptions: Record<string, stri
       division: getDivisionForPart(part),
       items: data.items,
       asSubmitted: data.asSubmitted,
-      percent: totalDirectCost > 0 ? (data.asSubmitted / totalDirectCost) * 100 : 0
+      percent: computePercentOfProjectCost(data.asSubmitted, totalProjectCost)
     }))
     .sort((a, b) => {
       const aOrder = PART_ORDER.indexOf(a.part.replace('PART ', ''));
@@ -357,7 +360,11 @@ interface DetailedPartGroup {
   partPercent: number;
 }
 
-function groupItemsByPartDetailed(boqItems: any[], partDescriptions: Record<string, string>): DetailedPartGroup[] {
+function groupItemsByPartDetailed(
+  boqItems: any[],
+  partDescriptions: Record<string, string>,
+  totalProjectCost: number,
+): DetailedPartGroup[] {
   const partMap = new Map<string, { items: DetailedLineItem[]; partTotal: number }>();
 
   boqItems.forEach((item) => {
@@ -406,8 +413,6 @@ function groupItemsByPartDetailed(boqItems: any[], partDescriptions: Record<stri
     partData.partTotal += directCost;
   });
 
-  const totalDirectCost = boqItems.reduce((sum, item) => sum + (item.directCost || 0), 0);
-
   return Array.from(partMap.entries())
     .map(([part, data]) => ({
       part,
@@ -415,10 +420,10 @@ function groupItemsByPartDetailed(boqItems: any[], partDescriptions: Record<stri
       division: getDivisionForPart(part),
       items: data.items.map(item => ({
         ...item,
-        percentDirectCost: totalDirectCost > 0 ? (item.directCostTotal / totalDirectCost) * 100 : 0
+        percentDirectCost: computePercentOfProjectCost(item.directCostTotal, totalProjectCost)
       })),
       partTotal: data.partTotal,
-      partPercent: totalDirectCost > 0 ? (data.partTotal / totalDirectCost) * 100 : 0
+      partPercent: computePercentOfProjectCost(data.partTotal, totalProjectCost)
     }))
     .sort((a, b) => {
       const aOrder = PART_ORDER.indexOf(a.part.replace('PART ', ''));
@@ -465,7 +470,7 @@ interface ComponentBreakdownPart {
 function groupItemsByComponentBreakdown(
   boqItems: any[],
   partDescriptions: Record<string, string>,
-  totalDirectCostAll: number
+  totalProjectCost: number,
 ): ComponentBreakdownPart[] {
   const partMap = new Map<string, { items: ComponentBreakdownItem[]; totals: ComponentBreakdownPart['totals'] }>();
 
@@ -505,7 +510,7 @@ function groupItemsByComponentBreakdown(
       itemNumber: item.payItemNumber || '',
       description: item.payItemDescription || '',
       asSubmitted: {
-        percent: totalDirectCostAll > 0 ? (directCost / totalDirectCostAll) * 100 : 0,
+        percent: computePercentOfProjectCost(directCost, totalProjectCost),
         quantity: item.quantity || 0,
         unit: item.unitOfMeasurement || item.unit || '',
         material,

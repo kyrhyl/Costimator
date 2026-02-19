@@ -23,6 +23,7 @@ type FormTab = 'pow' | 'abc' | 'dupa';
 export default function PrescribedFormsWorkspace({ projectId }: PrescribedFormsWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<FormTab>('pow');
   const [printBundlesReady, setPrintBundlesReady] = useState(false);
+  const [selectedDupaPrintKey, setSelectedDupaPrintKey] = useState<string | null>(null);
 
   const { data, loading, error, refetch } = usePrescribedFormsData(projectId);
 
@@ -95,10 +96,11 @@ export default function PrescribedFormsWorkspace({ projectId }: PrescribedFormsW
               ← Back to Project
             </Link>
             <h1 className="text-2xl font-bold text-gray-900">Prescribed Forms Packet</h1>
-            <p className="text-sm text-gray-600">POW and ABC in landscape, DUPA in portrait (single compiled PDF)</p>
+            <p className="text-sm text-gray-600">POW and ABC in landscape, DUPA in portrait</p>
           </div>
           <div className="flex gap-2">
             <button
+              type="button"
               onMouseEnter={preparePrintBundles}
               onFocus={preparePrintBundles}
               onClick={handlePrint}
@@ -144,16 +146,33 @@ export default function PrescribedFormsWorkspace({ projectId }: PrescribedFormsW
           )}
 
           {activeTab === 'dupa' && (
-            <DupaTab data={data.dupa} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+            <DupaTab
+              data={data.dupa}
+              formatCurrency={formatCurrency}
+              formatNumber={formatNumber}
+              selectedPrintKey={selectedDupaPrintKey}
+              onSelectedPrintKeyChange={setSelectedDupaPrintKey}
+            />
           )}
         </div>
       </div>
 
       {printBundlesReady && (
         <div className={printStyles.printOnly}>
-          <PowPrintBundle data={data.pow} formatCurrency={formatCurrency} formatNumber={formatNumber} />
-          <AbcPrintBundle data={data.abc} formatCurrency={formatCurrency} formatNumber={formatNumber} />
-          <DupaPrintBundle data={data.dupa} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+          {activeTab === 'pow' && (
+            <PowPrintBundle data={data.pow} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+          )}
+          {activeTab === 'abc' && (
+            <AbcPrintBundle data={data.abc} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+          )}
+          {activeTab === 'dupa' && (
+            <DupaPrintBundle
+              data={data.dupa}
+              selectedItemKey={selectedDupaPrintKey ?? undefined}
+              formatCurrency={formatCurrency}
+              formatNumber={formatNumber}
+            />
+          )}
         </div>
       )}
     </div>

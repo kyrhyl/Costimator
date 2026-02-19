@@ -80,6 +80,23 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
     });
   };
 
+  const getSourceMeta = (estimate: any) => {
+    const source = estimate?.boqSource;
+    if (source === 'manual') {
+      return { label: 'Manual BOQ', className: 'bg-amber-100 text-amber-800' };
+    }
+    if (source === 'projectBOQ') {
+      return { label: 'Takeoff Linked', className: 'bg-blue-100 text-blue-800' };
+    }
+    if (source === 'takeoffVersion' || source === 'calcRun' || source === 'boqDatabase') {
+      return { label: 'Takeoff Linked', className: 'bg-blue-100 text-blue-800' };
+    }
+    if (estimate?.takeoffVersionId) {
+      return { label: 'Takeoff Linked', className: 'bg-blue-100 text-blue-800' };
+    }
+    return { label: 'Unknown Source', className: 'bg-gray-100 text-gray-700' };
+  };
+
   const latestEstimate = useMemo(() => {
     if (estimates.length === 0) return null;
     return [...estimates].sort((a, b) => {
@@ -129,9 +146,9 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
               setShowCreateModal(false);
               loadEstimates();
               if (result?.manualMode) {
-                router.push(`/projects/${projectId}/program-of-works?mode=manual-setup`);
+                router.push(`/projects/${projectId}/program-of-works?section=manual-boq`);
               } else if (result?.estimateId) {
-                router.push(`/cost-estimates/${result.estimateId}`);
+                router.push(`/projects/${projectId}/program-of-works?estimateId=${result.estimateId}&view=takeoff&section=overview`);
               }
             }}
           />
@@ -227,6 +244,7 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
             <tr>
               <th className="px-6 py-3 text-left text-sm font-semibold">Estimate Name</th>
               <th className="px-6 py-3 text-left text-sm font-semibold">CMPD Version</th>
+              <th className="px-6 py-3 text-center text-sm font-semibold">Source</th>
               <th className="px-6 py-3 text-right text-sm font-semibold">Grand Total</th>
               <th className="px-6 py-3 text-center text-sm font-semibold">Items</th>
               <th className="px-6 py-3 text-center text-sm font-semibold">Status</th>
@@ -247,6 +265,16 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {estimate.cmpdVersion || 'N/A'}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  {(() => {
+                    const sourceMeta = getSourceMeta(estimate);
+                    return (
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${sourceMeta.className}`}>
+                        {sourceMeta.label}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="px-6 py-4 text-sm text-right font-semibold text-dpwh-green-700">
                   {formatCurrency(estimate.costSummary?.grandTotal || 0)}
@@ -278,11 +306,11 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
                       📄 POW Report
                     </Link>
                     <Link
-                      href={`/cost-estimates/${estimate._id}`}
+                      href={`/projects/${projectId}/program-of-works?estimateId=${estimate._id}&view=takeoff&section=overview`}
                       className="text-dpwh-green-600 hover:text-dpwh-green-800 text-sm px-2 py-1 rounded hover:bg-green-50"
-                      title="View Details & DUPA"
+                      title="Edit this version in workspace"
                     >
-                      📋 Details
+                      ✏️ Edit in Workspace
                     </Link>
                     <button
                       onClick={() => handleDeleteEstimate(estimate._id)}
@@ -320,9 +348,9 @@ export default function ProgramOfWorksTab({ projectId, project: _project }: Prog
             setShowCreateModal(false);
             loadEstimates();
             if (result?.manualMode) {
-              router.push(`/projects/${projectId}/program-of-works?mode=manual-setup`);
+              router.push(`/projects/${projectId}/program-of-works?section=manual-boq`);
             } else if (result?.estimateId) {
-              router.push(`/cost-estimates/${result.estimateId}`);
+              router.push(`/projects/${projectId}/program-of-works?estimateId=${result.estimateId}&view=takeoff&section=overview`);
             }
           }}
         />

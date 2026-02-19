@@ -11,6 +11,7 @@ interface ManualPowTemplateModalProps {
   loadingTemplates: boolean;
   templateError: string | null;
   selectedTemplateIds: Record<string, boolean>;
+  quickQuantities: Record<string, number>;
   stagedTemplates: StagedTemplate[];
   error: string | null;
   bulkError: string | null;
@@ -19,6 +20,9 @@ interface ManualPowTemplateModalProps {
   onTemplateSearchChange: (value: string) => void;
   onPartFilterChange: (value: string) => void;
   onToggleTemplateSelection: (templateId: string) => void;
+  onQuickQuantityChange: (templateId: string, value: number) => void;
+  onQuickAddTemplate: (template: TemplateSummary) => void;
+  quickAddingTemplateId?: string | null;
   onAddSelectedTemplates: () => void;
   onStagedQuantityChange: (templateId: string, value: number) => void;
   onRemoveStagedTemplate: (templateId: string) => void;
@@ -36,6 +40,7 @@ export default function ManualPowTemplateModal({
   loadingTemplates,
   templateError,
   selectedTemplateIds,
+  quickQuantities,
   stagedTemplates,
   error,
   bulkError,
@@ -44,6 +49,9 @@ export default function ManualPowTemplateModal({
   onTemplateSearchChange,
   onPartFilterChange,
   onToggleTemplateSelection,
+  onQuickQuantityChange,
+  onQuickAddTemplate,
+  quickAddingTemplateId,
   onAddSelectedTemplates,
   onStagedQuantityChange,
   onRemoveStagedTemplate,
@@ -115,7 +123,7 @@ export default function ManualPowTemplateModal({
               <ul>
                 {templates.map((tpl) => (
                   <li key={tpl._id} className="border-b border-gray-100 last:border-b-0">
-                    <label className="flex cursor-pointer items-start gap-3 px-4 py-3 text-sm hover:bg-blue-50">
+                    <div className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-blue-50">
                       <input
                         type="checkbox"
                         className="mt-1"
@@ -130,7 +138,25 @@ export default function ManualPowTemplateModal({
                           Unit: {tpl.unitOfMeasurement} {tpl.part ? `• ${tpl.part}` : ''}
                         </p>
                       </div>
-                    </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={quickQuantities[tpl._id] ?? 1}
+                          onChange={(e) => onQuickQuantityChange(tpl._id, Number(e.target.value))}
+                          className="w-20 rounded-md border border-gray-300 px-2 py-1 text-right"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => onQuickAddTemplate(tpl)}
+                          disabled={(quickQuantities[tpl._id] ?? 1) <= 0 || quickAddingTemplateId === tpl._id}
+                          className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {quickAddingTemplateId === tpl._id ? 'Adding...' : 'Add Now'}
+                        </button>
+                      </div>
+                    </div>
                   </li>
                 ))}
               </ul>

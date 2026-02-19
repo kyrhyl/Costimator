@@ -13,6 +13,8 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import DUPATemplate from '@/models/DUPATemplate';
 import mongoose from 'mongoose';
+import { getSessionUser } from '@/lib/auth/session';
+import { buildAuditActor, diffAuditFields, logAuditEvent } from '@/lib/audit/logger';
 
 export async function GET(
   request: Request,
@@ -61,6 +63,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getSessionUser();
     const { id } = await params;
     await dbConnect();
     
@@ -92,6 +95,15 @@ export async function PATCH(
       }
     }
 
+    const beforeTemplate = await DUPATemplate.findById(id).lean();
+
+    if (!beforeTemplate) {
+      return NextResponse.json(
+        { success: false, error: 'DUPA template not found' },
+        { status: 404 }
+      );
+    }
+
     const updated = await DUPATemplate.findByIdAndUpdate(
       id,
       { $set: body },
@@ -104,6 +116,18 @@ export async function PATCH(
         { status: 404 }
       );
     }
+
+    await logAuditEvent({
+      actor: buildAuditActor(user),
+      action: 'update',
+      entityType: 'dupa_template',
+      entityId: id,
+      summary: `Updated DUPA template ${updated.payItemNumber || id}`,
+      request,
+      changes: {
+        fields: diffAuditFields(beforeTemplate, updated),
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -140,6 +164,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getSessionUser();
     const { id } = await params;
     await dbConnect();
     
@@ -159,6 +184,18 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    await logAuditEvent({
+      actor: buildAuditActor(user),
+      action: 'delete',
+      entityType: 'dupa_template',
+      entityId: id,
+      summary: `Deleted DUPA template ${deleted.payItemNumber || id}`,
+      request,
+      changes: {
+        before: deleted,
+      },
+    });
 
     return NextResponse.json({
       success: true,

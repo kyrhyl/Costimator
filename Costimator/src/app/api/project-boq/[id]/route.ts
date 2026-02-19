@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db/connect';
 import ProjectBOQ from '@/models/ProjectBOQ';
+import Project from '@/models/Project';
 import mongoose from 'mongoose';
 
 // GET /api/project-boq/:id
@@ -18,7 +19,7 @@ export async function GET(
         { status: 400 }
       );
     }
-    
+
     const boqItem = await ProjectBOQ.findById(id)
       .populate('projectId')
       .populate('templateId');
@@ -66,6 +67,29 @@ export async function PATCH(
     }
     
     const body = await request.json();
+
+    const boqItem = await ProjectBOQ.findById(id).select('projectId totalCost');
+    if (!boqItem) {
+      return NextResponse.json(
+        { success: false, error: 'BOQ item not found' },
+        { status: 404 }
+      );
+    }
+
+    const project = await Project.findById(boqItem.projectId).select('powMode');
+    if (!project) {
+      return NextResponse.json(
+        { success: false, error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    if (project.powMode !== 'manual') {
+      return NextResponse.json(
+        { success: false, error: 'Manual BOQ is read-only while Takeoff Linked mode is active' },
+        { status: 403 }
+      );
+    }
     
     // Check if this is a recalculation request (has laborComputed field)
     if (body.laborComputed) {
@@ -109,10 +133,7 @@ export async function PATCH(
     } else {
       // Simple update (e.g., quantity change)
       if (body.quantity !== undefined) {
-        const boqItem = await ProjectBOQ.findById(id);
-        if (boqItem) {
-          body.totalAmount = boqItem.totalCost * body.quantity;
-        }
+        body.totalAmount = (boqItem.totalCost || 0) * body.quantity;
       }
       
       const updated = await ProjectBOQ.findByIdAndUpdate(
@@ -157,7 +178,30 @@ export async function DELETE(
         { status: 400 }
       );
     }
-    
+
+    const boqItem = await ProjectBOQ.findById(id).select('projectId');
+    if (!boqItem) {
+      return NextResponse.json(
+        { success: false, error: 'BOQ item not found' },
+        { status: 404 }
+      );
+    }
+
+    const project = await Project.findById(boqItem.projectId).select('powMode');
+    if (!project) {
+      return NextResponse.json(
+        { success: false, error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    if (project.powMode !== 'manual') {
+      return NextResponse.json(
+        { success: false, error: 'Manual BOQ is read-only while Takeoff Linked mode is active' },
+        { status: 403 }
+      );
+    }
+
     const deleted = await ProjectBOQ.findByIdAndDelete(id);
     
     if (!deleted) {

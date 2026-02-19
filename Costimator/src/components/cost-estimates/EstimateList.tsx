@@ -54,7 +54,7 @@ export default function EstimateList({ projectId }: EstimateListProps) {
       {estimates.map((est) => (
         <Link
           key={est._id}
-          href={`/cost-estimates/${est._id}`}
+          href={`/projects/${projectId}/program-of-works?estimateId=${est._id}&view=takeoff&section=overview`}
           className="block border rounded-lg p-4 hover:bg-gray-50 transition"
         >
           <div className="flex justify-between items-start">

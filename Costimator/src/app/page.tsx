@@ -68,7 +68,8 @@ export default function Home() {
         </svg>
       ),
       stats: ['Direct Costs', 'OCM/CP/VAT', 'PDF Export', 'History'],
-      gradient: 'from-emerald-500 to-emerald-600'
+      gradient: 'from-emerald-500 to-emerald-600',
+      requiresAuth: true,
     },
     {
       title: 'DUPA Templates',
@@ -80,7 +81,8 @@ export default function Home() {
         </svg>
       ),
       stats: ['Templates', 'Location Rates', 'Multi-Input', 'Instant BOQ'],
-      gradient: 'from-violet-500 to-violet-600'
+      gradient: 'from-violet-500 to-violet-600',
+      requiresAuth: true,
     },
     {
       title: 'DPWH Pay Items',
@@ -92,7 +94,8 @@ export default function Home() {
         </svg>
       ),
       stats: ['Pay Items', 'Search', 'Classification', 'Units'],
-      gradient: 'from-indigo-500 to-indigo-600'
+      gradient: 'from-indigo-500 to-indigo-600',
+      requiresAuth: true,
     },
     {
       title: 'Master Data',
@@ -104,7 +107,8 @@ export default function Home() {
         </svg>
       ),
       stats: ['Materials', 'Equipment', 'Labor', 'Import/Export'],
-      gradient: 'from-slate-500 to-slate-600'
+      gradient: 'from-slate-500 to-slate-600',
+      requiresAuth: true,
     },
   ];
 
@@ -292,12 +296,20 @@ export default function Home() {
             Streamline your construction cost estimation workflow with professional tools designed for Philippine infrastructure projects
           </p>
           <div className="flex gap-4 justify-center">
-            <Link href="/projects" className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors shadow-lg">
-              Browse Projects
-            </Link>
-            <Link href="/catalog" className="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-400 transition-colors border border-white/20">
-              View Pay Items
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link href="/projects" className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors shadow-lg">
+                  Browse Projects
+                </Link>
+                <Link href="/catalog" className="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-400 transition-colors border border-white/20">
+                  View Pay Items
+                </Link>
+              </>
+            ) : (
+              <Link href="/auth/signin" className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors shadow-lg">
+                Sign in to continue
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { computePercentOfProjectCost } from '@/lib/utils/pow-math';
 
 export interface WorksPart {
   part: string;
@@ -61,7 +62,7 @@ export default function DescriptionOfWorksTable({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {parts.map((part) => {
-              const percent = totalSubmitted > 0 ? (part.asSubmitted / totalSubmitted) * 100 : 0;
+              const percent = computePercentOfProjectCost(part.asSubmitted, totalSubmitted);
               
               return (
                 <tr 

@@ -52,12 +52,12 @@ interface SaveManualPowVersionResult {
   data?: { _id?: string };
 }
 
-export async function saveManualPowVersion(
+export async function saveManualPowDraft(
   projectId: string,
-  input: { name: string; description: string },
+  input: { name?: string; description?: string; estimateId?: string },
 ): Promise<SaveManualPowVersionResult> {
   const response = await fetch(`/api/projects/${projectId}/manual-pow`, {
-    method: 'POST',
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
@@ -142,13 +142,21 @@ export async function saveStagedManualPowItems(
 }
 
 export async function updateProjectBoqQuantity(itemId: string, quantity: number): Promise<void> {
-  await fetch(`/api/project-boq/${itemId}`, {
+  const res = await fetch(`/api/project-boq/${itemId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ quantity }),
   });
+  const data = (await res.json()) as ManualPowApiResponse;
+  if (!res.ok || !data.success) {
+    throw new Error(getErrorMessage(data, 'Failed to update quantity'));
+  }
 }
 
 export async function deleteProjectBoqItem(itemId: string): Promise<void> {
-  await fetch(`/api/project-boq/${itemId}`, { method: 'DELETE' });
+  const res = await fetch(`/api/project-boq/${itemId}`, { method: 'DELETE' });
+  const data = (await res.json()) as ManualPowApiResponse;
+  if (!res.ok || !data.success) {
+    throw new Error(getErrorMessage(data, 'Failed to delete BOQ item'));
+  }
 }
